@@ -101,6 +101,15 @@ The library includes precompiled binaries for the following platforms:
 - 386 (x86 32-bit) 
 - arm64 (ARMv8)
 - arm (ARMv7)
+- armv6 (ARMv6)
+- riscv64 (RISC-V 64-bit)
+- ppc64le (PowerPC64 little-endian)
+- ppc64 (PowerPC64 big-endian)
+- mips64le (MIPS64 little-endian)
+- mips64 (MIPS64 big-endian)
+- mipsle (MIPS little-endian)
+- mips (MIPS big-endian)
+- s390x (IBM System z)
 
 ### macOS
 - arm64 (Apple Silicon)
