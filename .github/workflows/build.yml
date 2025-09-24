@@ -16,6 +16,7 @@ jobs:
             cc: gcc
             cflags: "-O3 -static -fno-stack-protector -Wl,--gc-sections -march=x86-64 -mtune=generic"
             fflags: "-O3 -static -fno-stack-protector"
+            
           - os: ubuntu-latest
             target: linux-amd64-compat
             goos: linux
@@ -23,6 +24,7 @@ jobs:
             cc: gcc
             cflags: "-O2 -march=x86-64 -mtune=generic -static -fno-stack-protector -mno-sse4.2 -mno-avx -mno-avx2"
             fflags: "-O2 -static -fno-stack-protector"
+            
           - os: ubuntu-latest
             target: linux-386
             goos: linux
@@ -31,6 +33,7 @@ jobs:
             cflags: "-m32 -static -O2 -march=i686 -mtune=generic -fno-stack-protector"
             fflags: "-m32 -O2 -static -fno-stack-protector"
             packages: "gcc-multilib gfortran-multilib"
+            
           - os: ubuntu-latest
             target: linux-arm64
             goos: linux
@@ -41,22 +44,24 @@ jobs:
             fflags: "-static -O3 -fno-stack-protector"
             packages: "gcc-aarch64-linux-gnu gfortran-aarch64-linux-gnu"
             strip: aarch64-linux-gnu-strip
+            
           - os: ubuntu-latest
             target: linux-armv7
             goos: linux
             goarch: arm
-            goarm: 7
+            goarm: "7"
             cc: arm-linux-gnueabihf-gcc
             fc: arm-linux-gnueabihf-gfortran
             cflags: "-static -O2 -march=armv7-a -mfpu=vfpv3-d16 -fno-stack-protector"
             fflags: "-static -O2 -fno-stack-protector"
             packages: "gcc-arm-linux-gnueabihf gfortran-arm-linux-gnueabihf"
             strip: arm-linux-gnueabihf-strip
+            
           - os: ubuntu-latest
             target: linux-armv6
             goos: linux
             goarch: arm
-            goarm: 6
+            goarm: "6"
             cc: arm-linux-gnueabihf-gcc
             fc: arm-linux-gnueabihf-gfortran
             cflags: "-static -O2 -march=armv6 -mfpu=vfp -fno-stack-protector"
@@ -75,6 +80,7 @@ jobs:
             fflags: "-static -O2 -fno-stack-protector"
             packages: "gcc-riscv64-linux-gnu gfortran-riscv64-linux-gnu"
             strip: riscv64-linux-gnu-strip
+            
           - os: ubuntu-latest
             target: linux-ppc64le
             goos: linux
@@ -97,6 +103,7 @@ jobs:
             fflags: "-static -O2 -fno-stack-protector"
             packages: "gcc-powerpc64-linux-gnu gfortran-powerpc64-linux-gnu"
             strip: powerpc64-linux-gnu-strip
+            
           - os: ubuntu-latest
             target: linux-s390x
             goos: linux
@@ -107,6 +114,7 @@ jobs:
             fflags: "-static -O2 -fno-stack-protector"
             packages: "gcc-s390x-linux-gnu gfortran-s390x-linux-gnu"
             strip: s390x-linux-gnu-strip
+            
           - os: ubuntu-latest
             target: linux-mips
             goos: linux
@@ -117,7 +125,8 @@ jobs:
             fflags: "-static -O2 -fno-stack-protector"
             packages: "gcc-mips-linux-gnu gfortran-mips-linux-gnu"
             strip: mips-linux-gnu-strip
-            use_buildx: true  # 可能需要 QEMU 支持
+            use_buildx: true
+            
           - os: ubuntu-latest
             target: linux-mipsle
             goos: linux
@@ -129,6 +138,7 @@ jobs:
             packages: "gcc-mipsel-linux-gnu gfortran-mipsel-linux-gnu"
             strip: mipsel-linux-gnu-strip
             use_buildx: true
+            
           - os: ubuntu-latest
             target: linux-mips64
             goos: linux
@@ -140,6 +150,7 @@ jobs:
             packages: "gcc-mips64-linux-gnuabi64 gfortran-mips64-linux-gnuabi64"
             strip: mips64-linux-gnuabi64-strip
             use_buildx: true
+            
           - os: ubuntu-latest
             target: linux-mips64le
             goos: linux
@@ -163,6 +174,7 @@ jobs:
             fflags: "-O3 -arch x86_64 -mmacosx-version-min=10.12 -fopenmp"
             setup_fortran: true
             use_openmp: true
+            
           - os: macos-latest
             target: darwin-arm64
             goos: darwin
@@ -186,6 +198,7 @@ jobs:
             packages: "gcc-mingw-w64-x86-64 gfortran-mingw-w64-x86-64"
             strip: x86_64-w64-mingw32-strip
             ext: ".exe"
+            
           - os: ubuntu-latest
             target: windows-386
             goos: windows
@@ -197,6 +210,7 @@ jobs:
             packages: "gcc-mingw-w64-i686 gfortran-mingw-w64-i686"
             strip: i686-w64-mingw32-strip
             ext: ".exe"
+            
           # Windows ARM64 (使用LLVM-MinGW)
           - os: ubuntu-latest
             target: windows-arm64
@@ -212,6 +226,7 @@ jobs:
       fail-fast: false
 
     runs-on: ${{ matrix.os }}
+    
     steps:
       - name: Checkout current repository
         uses: actions/checkout@v4
@@ -454,8 +469,7 @@ jobs:
               timeout 10s "./${PREFIX}${{ matrix.ext }}" || echo "Test completed or timed out"
             fi
           fi
-          
-        continue-on-error: false  # 改为 false，让失败的构建显示为失败但不阻止其他构建
+        continue-on-error: false
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
@@ -471,6 +485,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: always()
+    
     steps:
       - name: Checkout current repository
         uses: actions/checkout@v4
@@ -704,17 +719,7 @@ jobs:
             git add bin/
             
             # 创建提交信息
-            COMMIT_MSG="🚀 Auto-build: Update STREAM binaries from workflow run ${{ github.run_number }}
-
-Built ${total_binaries} binaries across multiple architectures:
-- Linux: ${linux_count} binaries
-- macOS: ${darwin_count} binaries  
-- Windows: ${windows_count} binaries
-
-Workflow: ${{ github.workflow }}
-Run ID: ${{ github.run_id }}
-Commit: ${{ github.sha }}
-Actor: ${{ github.actor }}"
+            COMMIT_MSG="🚀 Auto-build: Update STREAM binaries from workflow run ${{ github.run_number }}"
             
             # 提交更改
             git commit -m "$COMMIT_MSG"
