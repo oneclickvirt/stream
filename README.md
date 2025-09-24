@@ -20,7 +20,7 @@ This library provides a Go wrapper for the STREAM memory bandwidth benchmark too
 ## 安装 Installation
 
 ```bash
-go get github.com/oneclickvirt/stream
+go get github.com/oneclickvirt/stream@v0.0.1-20250924124003
 ```
 
 ## 使用方法 Usage
