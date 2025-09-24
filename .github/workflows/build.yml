@@ -93,18 +93,20 @@ jobs:
             goarch: amd64
             cc: clang
             fc: gfortran
-            cflags: "-O3 -arch x86_64 -mmacosx-version-min=10.12"
-            fflags: "-O3 -arch x86_64 -mmacosx-version-min=10.12"
+            cflags: "-O3 -arch x86_64 -mmacosx-version-min=10.12 -fopenmp=libgomp"
+            fflags: "-O3 -arch x86_64 -mmacosx-version-min=10.12 -fopenmp"
             setup_fortran: true
+            use_openmp: true
           - os: macos-latest
             target: darwin-arm64
             goos: darwin
             goarch: arm64
             cc: clang
             fc: gfortran
-            cflags: "-O3 -arch arm64 -mmacosx-version-min=11.0"
-            fflags: "-O3 -arch arm64 -mmacosx-version-min=11.0"
+            cflags: "-O3 -arch arm64 -mmacosx-version-min=11.0 -fopenmp=libgomp"
+            fflags: "-O3 -arch arm64 -mmacosx-version-min=11.0 -fopenmp"
             setup_fortran: true
+            use_openmp: true
 
           # Windows builds (使用 mingw-w64)
           - os: ubuntu-latest
@@ -129,16 +131,15 @@ jobs:
             packages: "gcc-mingw-w64-i686 gfortran-mingw-w64-i686"
             strip: i686-w64-mingw32-strip
             ext: ".exe"
-          # Windows ARM64 (使用 llvm-mingw)
+          # Windows ARM64 (使用正确的 LLVM-MinGW)
           - os: ubuntu-latest
             target: windows-arm64
             goos: windows
             goarch: arm64
             cc: aarch64-w64-mingw32-clang
-            fc: aarch64-w64-mingw32-flang
+            fc: aarch64-w64-mingw32-gfortran
             cflags: "-O3 -static"
             fflags: "-O3 -static"
-            packages: "wget"
             ext: ".exe"
             use_llvm_mingw: true
             
@@ -170,18 +171,42 @@ jobs:
       - name: Setup LLVM-MinGW for Windows ARM64
         if: matrix.use_llvm_mingw == true
         run: |
-          wget https://github.com/mstorsjo/llvm-mingw/releases/latest/download/llvm-mingw-20231128-ucrt-ubuntu-20.04-x86_64.tar.xz
-          tar -xf llvm-mingw-*.tar.xz
+          # 获取最新的 LLVM-MinGW 版本
+          LATEST_RELEASE=$(curl -s https://api.github.com/repos/mstorsjo/llvm-mingw/releases/latest | grep "tag_name" | cut -d '"' -f 4)
+          echo "Latest LLVM-MinGW version: $LATEST_RELEASE"
+          
+          # 下载最新版本的 LLVM-MinGW
+          DOWNLOAD_URL="https://github.com/mstorsjo/llvm-mingw/releases/download/${LATEST_RELEASE}/llvm-mingw-${LATEST_RELEASE}-ucrt-ubuntu-20.04-x86_64.tar.xz"
+          echo "Downloading: $DOWNLOAD_URL"
+          
+          wget "$DOWNLOAD_URL" -O llvm-mingw.tar.xz || {
+            echo "Failed to download, trying alternative naming..."
+            # 尝试其他可能的文件名格式
+            wget "https://github.com/mstorsjo/llvm-mingw/releases/download/${LATEST_RELEASE}/llvm-mingw-${LATEST_RELEASE}-msvcrt-ubuntu-20.04-x86_64.tar.xz" -O llvm-mingw.tar.xz || {
+              echo "Trying without ubuntu version..."
+              wget "https://github.com/mstorsjo/llvm-mingw/releases/download/${LATEST_RELEASE}/llvm-mingw-${LATEST_RELEASE}-ucrt-x86_64.tar.xz" -O llvm-mingw.tar.xz
+            }
+          }
+          
+          tar -xf llvm-mingw.tar.xz
           sudo mv llvm-mingw-* /opt/llvm-mingw
           echo "/opt/llvm-mingw/bin" >> $GITHUB_PATH
-          export PATH="/opt/llvm-mingw/bin:$PATH"
+          
+          # 验证安装
+          ls -la /opt/llvm-mingw/bin/ | grep aarch64 || echo "ARM64 compilers not found, checking available compilers:"
+          ls -la /opt/llvm-mingw/bin/
 
       - name: Setup build environment (macOS)
         if: runner.os == 'macOS'
         run: |
-          # 安装 gfortran (如果需要)
+          # 安装 gfortran 和 OpenMP (如果需要)
           if [[ "${{ matrix.setup_fortran }}" == "true" ]]; then
-            brew install gcc || true
+            # 安装 GCC (包含 gfortran)
+            brew install gcc
+            # 安装 libomp 用于 OpenMP 支持
+            if [[ "${{ matrix.use_openmp }}" == "true" ]]; then
+              brew install libomp
+            fi
           fi
 
       - name: Build STREAM static binary
@@ -194,6 +219,19 @@ jobs:
           export CFLAGS="${{ matrix.cflags }}"
           export FFLAGS="${{ matrix.fflags || matrix.cflags }}"
           
+          # macOS 特殊处理
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            # 设置 OpenMP 库路径
+            if [[ "${{ matrix.use_openmp }}" == "true" ]]; then
+              export LDFLAGS="-L$(brew --prefix libomp)/lib -lomp"
+              export CPPFLAGS="-I$(brew --prefix libomp)/include"
+              # 对于 clang，使用正确的 OpenMP 标志
+              export CFLAGS="${CFLAGS} -Xpreprocessor -fopenmp -I$(brew --prefix libomp)/include"
+            fi
+            # 确保使用正确的 gfortran
+            export FC="$(brew --prefix gcc)/bin/gfortran"
+          fi
+          
           # 为 LLVM-MinGW 设置路径
           if [[ "${{ matrix.use_llvm_mingw }}" == "true" ]]; then
             export PATH="/opt/llvm-mingw/bin:$PATH"
@@ -203,15 +241,29 @@ jobs:
           
           # 编译 STREAM C 版本
           echo "=== Building STREAM C version ==="
-          $CC $CFLAGS -DSTREAM_ARRAY_SIZE=10000000 -DNTIMES=10 stream.c -o stream_c${{ matrix.ext }} || \
-          $CC $CFLAGS -DSTREAM_ARRAY_SIZE=10000000 stream.c -o stream_c${{ matrix.ext }} || \
-          $CC $CFLAGS stream.c -o stream_c${{ matrix.ext }}
+          # macOS 特殊编译选项
+          if [[ "${{ runner.os }}" == "macOS" && "${{ matrix.use_openmp }}" == "true" ]]; then
+            $CC $CFLAGS $CPPFLAGS -DSTREAM_ARRAY_SIZE=80000000 -DNTIMES=10 -DOMP stream.c $LDFLAGS -o stream_c${{ matrix.ext }} || \
+            $CC $CFLAGS $CPPFLAGS -DSTREAM_ARRAY_SIZE=10000000 -DNTIMES=10 stream.c $LDFLAGS -o stream_c${{ matrix.ext }} || \
+            $CC $CFLAGS stream.c -o stream_c${{ matrix.ext }}
+          else
+            $CC $CFLAGS -DSTREAM_ARRAY_SIZE=10000000 -DNTIMES=10 stream.c -o stream_c${{ matrix.ext }} || \
+            $CC $CFLAGS -DSTREAM_ARRAY_SIZE=10000000 stream.c -o stream_c${{ matrix.ext }} || \
+            $CC $CFLAGS stream.c -o stream_c${{ matrix.ext }}
+          fi
           
           # 尝试编译 Fortran 版本 (如果有 Fortran 编译器)
           if command -v $FC &> /dev/null; then
             echo "=== Building STREAM Fortran version ==="
-            $FC $FFLAGS stream.f -o stream_f${{ matrix.ext }} || \
-            $FC $FFLAGS -DSTREAM_ARRAY_SIZE=10000000 -DNTIMES=10 stream.f -o stream_f${{ matrix.ext }} || true
+            # macOS Fortran 特殊编译
+            if [[ "${{ runner.os }}" == "macOS" && "${{ matrix.use_openmp }}" == "true" ]]; then
+              $FC $FFLAGS -fopenmp -DSTREAM_ARRAY_SIZE=80000000 -DNTIMES=10 stream.f -o stream_f${{ matrix.ext }} || \
+              $FC $FFLAGS -fopenmp -DSTREAM_ARRAY_SIZE=10000000 -DNTIMES=10 stream.f -o stream_f${{ matrix.ext }} || \
+              $FC $FFLAGS stream.f -o stream_f${{ matrix.ext }} || true
+            else
+              $FC $FFLAGS stream.f -o stream_f${{ matrix.ext }} || \
+              $FC $FFLAGS -DSTREAM_ARRAY_SIZE=10000000 -DNTIMES=10 stream.f -o stream_f${{ matrix.ext }} || true
+            fi
           else
             echo "Fortran compiler not available, skipping Fortran build"
           fi
@@ -358,7 +410,7 @@ jobs:
           - **Linux binaries**: Statically linked for maximum portability (no dependencies required)
           - **Linux amd64-compat**: Built without advanced CPU instructions for older processors
           - **Windows binaries**: Statically linked, no additional runtime dependencies required
-          - **macOS binaries**: Dynamically linked (standard for macOS), minimum version requirements for broader compatibility
+          - **macOS binaries**: Dynamically linked with OpenMP support for better performance
           
           ## Usage
           
@@ -392,9 +444,7 @@ jobs:
           These binaries are automatically built using GitHub Actions from the [STREAM source repository](https://github.com/jeffhammond/STREAM).
           All binaries are optimized for their respective platforms.
           
-          Source: https://github.com/jeffhammond/STREAM
           Built in: ${{ github.repository }}
-          Build date: $(date -u +'%Y-%m-%d %H:%M:%S UTC')
           EOF
           
           echo "Successfully organized binaries:"
@@ -414,12 +464,16 @@ jobs:
             !bin/.gitkeep
           retention-days: 90
           
-      - name: Commit binaries to current repository
+      - name: Commit binaries to repository
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         run: |
+          # 配置 Git
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
+          
+          # 添加构建的二进制文件
           git add bin/
+          
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
@@ -431,7 +485,9 @@ jobs:
             - Run: ${{ github.run_number }}
             - Repository: ${{ github.repository }}
             - Includes C and Fortran versions for multiple architectures
-            - Windows ARM64/AMD64/386 and comprehensive Linux/macOS support"
+            - Platforms: Linux (multiple arch), macOS (Intel/ARM64), Windows (AMD64/386/ARM64)"
+            
+            # 推送到当前仓库
             git push
           fi
         continue-on-error: true
