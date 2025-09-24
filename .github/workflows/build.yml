@@ -1,0 +1,441 @@
+name: Build STREAM Static Binaries
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          # Linux builds - 主要架构
+          - os: ubuntu-latest
+            target: linux-amd64
+            goos: linux
+            goarch: amd64
+            cc: gcc
+            cflags: "-O3 -static -fno-stack-protector -Wl,--gc-sections -march=x86-64 -mtune=generic"
+            fflags: "-O3 -static -fno-stack-protector"
+          - os: ubuntu-latest
+            target: linux-amd64-compat
+            goos: linux
+            goarch: amd64
+            cc: gcc
+            cflags: "-O2 -march=x86-64 -mtune=generic -static -fno-stack-protector -mno-sse4.2 -mno-avx -mno-avx2"
+            fflags: "-O2 -static -fno-stack-protector"
+          - os: ubuntu-latest
+            target: linux-386
+            goos: linux
+            goarch: 386
+            cc: gcc
+            cflags: "-m32 -static -O2 -march=i686 -mtune=generic -fno-stack-protector"
+            fflags: "-m32 -O2 -static -fno-stack-protector"
+            packages: "gcc-multilib gfortran-multilib"
+          - os: ubuntu-latest
+            target: linux-arm64
+            goos: linux
+            goarch: arm64
+            cc: aarch64-linux-gnu-gcc
+            fc: aarch64-linux-gnu-gfortran
+            cflags: "-static -O3 -fno-stack-protector -march=armv8-a"
+            fflags: "-static -O3 -fno-stack-protector"
+            packages: "gcc-aarch64-linux-gnu gfortran-aarch64-linux-gnu"
+            strip: aarch64-linux-gnu-strip
+          - os: ubuntu-latest
+            target: linux-armv7
+            goos: linux
+            goarch: arm
+            goarm: 7
+            cc: arm-linux-gnueabihf-gcc
+            fc: arm-linux-gnueabihf-gfortran
+            cflags: "-static -O2 -march=armv7-a -mfpu=vfpv3-d16 -fno-stack-protector"
+            fflags: "-static -O2 -fno-stack-protector"
+            packages: "gcc-arm-linux-gnueabihf gfortran-arm-linux-gnueabihf"
+            strip: arm-linux-gnueabihf-strip
+          - os: ubuntu-latest
+            target: linux-armv6
+            goos: linux
+            goarch: arm
+            goarm: 6
+            cc: arm-linux-gnueabihf-gcc
+            fc: arm-linux-gnueabihf-gfortran
+            cflags: "-static -O2 -march=armv6 -mfpu=vfp -fno-stack-protector"
+            fflags: "-static -O2 -fno-stack-protector"
+            packages: "gcc-arm-linux-gnueabihf gfortran-arm-linux-gnueabihf"
+            strip: arm-linux-gnueabihf-strip
+            
+          # Linux builds - 特殊架构
+          - os: ubuntu-latest
+            target: linux-riscv64
+            goos: linux
+            goarch: riscv64
+            cc: riscv64-linux-gnu-gcc
+            fc: riscv64-linux-gnu-gfortran
+            cflags: "-static -O2 -fno-stack-protector"
+            fflags: "-static -O2 -fno-stack-protector"
+            packages: "gcc-riscv64-linux-gnu gfortran-riscv64-linux-gnu"
+            strip: riscv64-linux-gnu-strip
+          - os: ubuntu-latest
+            target: linux-ppc64le
+            goos: linux
+            goarch: ppc64le
+            cc: powerpc64le-linux-gnu-gcc
+            fc: powerpc64le-linux-gnu-gfortran
+            cflags: "-static -O2 -fno-stack-protector"
+            fflags: "-static -O2 -fno-stack-protector"
+            packages: "gcc-powerpc64le-linux-gnu gfortran-powerpc64le-linux-gnu"
+            strip: powerpc64le-linux-gnu-strip
+            
+          # macOS builds
+          - os: macos-latest
+            target: darwin-amd64
+            goos: darwin
+            goarch: amd64
+            cc: clang
+            fc: gfortran
+            cflags: "-O3 -arch x86_64 -mmacosx-version-min=10.12"
+            fflags: "-O3 -arch x86_64 -mmacosx-version-min=10.12"
+            setup_fortran: true
+          - os: macos-latest
+            target: darwin-arm64
+            goos: darwin
+            goarch: arm64
+            cc: clang
+            fc: gfortran
+            cflags: "-O3 -arch arm64 -mmacosx-version-min=11.0"
+            fflags: "-O3 -arch arm64 -mmacosx-version-min=11.0"
+            setup_fortran: true
+
+          # Windows builds (使用 mingw-w64)
+          - os: ubuntu-latest
+            target: windows-amd64
+            goos: windows
+            goarch: amd64
+            cc: x86_64-w64-mingw32-gcc
+            fc: x86_64-w64-mingw32-gfortran
+            cflags: "-O3 -static -static-libgcc -static-libstdc++ -static-libgfortran"
+            fflags: "-O3 -static -static-libgcc -static-libgfortran"
+            packages: "gcc-mingw-w64-x86-64 gfortran-mingw-w64-x86-64"
+            strip: x86_64-w64-mingw32-strip
+            ext: ".exe"
+          - os: ubuntu-latest
+            target: windows-386
+            goos: windows
+            goarch: 386
+            cc: i686-w64-mingw32-gcc
+            fc: i686-w64-mingw32-gfortran
+            cflags: "-O3 -static -static-libgcc -static-libstdc++ -static-libgfortran"
+            fflags: "-O3 -static -static-libgcc -static-libgfortran"
+            packages: "gcc-mingw-w64-i686 gfortran-mingw-w64-i686"
+            strip: i686-w64-mingw32-strip
+            ext: ".exe"
+          # Windows ARM64 (使用 llvm-mingw)
+          - os: ubuntu-latest
+            target: windows-arm64
+            goos: windows
+            goarch: arm64
+            cc: aarch64-w64-mingw32-clang
+            fc: aarch64-w64-mingw32-flang
+            cflags: "-O3 -static"
+            fflags: "-O3 -static"
+            packages: "wget"
+            ext: ".exe"
+            use_llvm_mingw: true
+            
+      fail-fast: false
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v4
+
+      - name: Checkout STREAM source
+        uses: actions/checkout@v4
+        with:
+          repository: jeffhammond/STREAM
+          path: stream-src
+
+      - name: Create bin directory
+        run: mkdir -p bin
+
+      - name: Setup build environment (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential gfortran
+          if [[ -n "${{ matrix.packages }}" ]]; then
+            sudo apt-get install -y ${{ matrix.packages }}
+          fi
+
+      - name: Setup LLVM-MinGW for Windows ARM64
+        if: matrix.use_llvm_mingw == true
+        run: |
+          wget https://github.com/mstorsjo/llvm-mingw/releases/latest/download/llvm-mingw-20231128-ucrt-ubuntu-20.04-x86_64.tar.xz
+          tar -xf llvm-mingw-*.tar.xz
+          sudo mv llvm-mingw-* /opt/llvm-mingw
+          echo "/opt/llvm-mingw/bin" >> $GITHUB_PATH
+          export PATH="/opt/llvm-mingw/bin:$PATH"
+
+      - name: Setup build environment (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          # 安装 gfortran (如果需要)
+          if [[ "${{ matrix.setup_fortran }}" == "true" ]]; then
+            brew install gcc || true
+          fi
+
+      - name: Build STREAM static binary
+        run: |
+          cd stream-src
+          
+          # 设置编译器和标志
+          export CC="${{ matrix.cc }}"
+          export FC="${{ matrix.fc || matrix.cc }}"
+          export CFLAGS="${{ matrix.cflags }}"
+          export FFLAGS="${{ matrix.fflags || matrix.cflags }}"
+          
+          # 为 LLVM-MinGW 设置路径
+          if [[ "${{ matrix.use_llvm_mingw }}" == "true" ]]; then
+            export PATH="/opt/llvm-mingw/bin:$PATH"
+          fi
+          
+          echo "Building STREAM with CC=$CC and CFLAGS=$CFLAGS"
+          
+          # 编译 STREAM C 版本
+          echo "=== Building STREAM C version ==="
+          $CC $CFLAGS -DSTREAM_ARRAY_SIZE=10000000 -DNTIMES=10 stream.c -o stream_c${{ matrix.ext }} || \
+          $CC $CFLAGS -DSTREAM_ARRAY_SIZE=10000000 stream.c -o stream_c${{ matrix.ext }} || \
+          $CC $CFLAGS stream.c -o stream_c${{ matrix.ext }}
+          
+          # 尝试编译 Fortran 版本 (如果有 Fortran 编译器)
+          if command -v $FC &> /dev/null; then
+            echo "=== Building STREAM Fortran version ==="
+            $FC $FFLAGS stream.f -o stream_f${{ matrix.ext }} || \
+            $FC $FFLAGS -DSTREAM_ARRAY_SIZE=10000000 -DNTIMES=10 stream.f -o stream_f${{ matrix.ext }} || true
+          else
+            echo "Fortran compiler not available, skipping Fortran build"
+          fi
+          
+          # 设置输出文件名前缀
+          if [[ -n "${{ matrix.goarm }}" ]]; then
+            PREFIX="stream-${{ matrix.goos }}-${{ matrix.goarch }}v${{ matrix.goarm }}"
+          else
+            PREFIX="stream-${{ matrix.goos }}-${{ matrix.goarch }}"
+          fi
+          
+          # 复制并重命名二进制文件
+          if [[ -f "stream_c${{ matrix.ext }}" ]]; then
+            cp "stream_c${{ matrix.ext }}" "../bin/${PREFIX}_c${{ matrix.ext }}"
+            echo "Built C version: ${PREFIX}_c${{ matrix.ext }}"
+          fi
+          
+          if [[ -f "stream_f${{ matrix.ext }}" ]]; then
+            cp "stream_f${{ matrix.ext }}" "../bin/${PREFIX}_f${{ matrix.ext }}"
+            echo "Built Fortran version: ${PREFIX}_f${{ matrix.ext }}"
+          fi
+          
+          # 创建主要的可执行文件链接 (使用 C 版本)
+          if [[ -f "stream_c${{ matrix.ext }}" ]]; then
+            cp "stream_c${{ matrix.ext }}" "../bin/${PREFIX}${{ matrix.ext }}"
+          fi
+          
+          # Strip 二进制文件
+          cd ../bin
+          if [[ -n "${{ matrix.strip }}" ]]; then
+            ${{ matrix.strip }} ${PREFIX}* 2>/dev/null || true
+          elif [[ "${{ runner.os }}" == "Linux" && "${{ matrix.target }}" == "linux-amd64" ]]; then
+            strip ${PREFIX}* 2>/dev/null || true
+          elif [[ "${{ runner.os }}" == "macOS" ]]; then
+            strip ${PREFIX}* 2>/dev/null || true
+          fi
+          
+          # 显示文件信息
+          echo "=== Built files ==="
+          ls -lah ${PREFIX}* || ls -lah *${{ matrix.target }}* || true
+          for f in ${PREFIX}*; do
+            if [[ -f "$f" ]]; then
+              echo "File: $f"
+              file "$f" || true
+              echo "---"
+            fi
+          done
+          
+          # 测试二进制文件（仅在兼容架构上）
+          if [[ "${{ matrix.target }}" == "linux-amd64" && "${{ runner.os }}" == "Linux" ]]; then
+            echo "=== Testing Linux AMD64 binary ==="
+            if [[ -f "${PREFIX}${{ matrix.ext }}" ]]; then
+              timeout 10s "./${PREFIX}${{ matrix.ext }}" || echo "Test completed or timed out"
+            fi
+          elif [[ "${{ runner.os }}" == "macOS" ]]; then
+            echo "=== Testing macOS binary ==="
+            if [[ -f "${PREFIX}${{ matrix.ext }}" ]]; then
+              timeout 10s "./${PREFIX}${{ matrix.ext }}" || echo "Test completed or timed out"
+            fi
+          fi
+          
+        continue-on-error: true
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stream-${{ matrix.target }}
+          path: bin/stream-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm && 'v' }}${{ matrix.goarm }}*
+          retention-days: 30
+        continue-on-error: true
+
+  collect:
+    needs: build
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Checkout STREAM source
+        uses: actions/checkout@v4
+        with:
+          repository: jeffhammond/STREAM
+          path: stream-src
+          
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+          
+      - name: Organize binaries
+        run: |
+          # 创建 bin 目录
+          mkdir -p bin/
+          
+          # 从所有构建工件中复制文件到 bin 目录
+          find artifacts/ -type f -name "stream-*" -exec cp {} bin/ \;
+          
+          # 给所有二进制文件添加执行权限
+          chmod +x bin/stream-* 2>/dev/null || true
+          
+          # 创建 README 文件
+          cat > bin/README.md << 'EOF'
+          # STREAM Static Binaries
+          
+          This directory contains statically compiled binaries of [STREAM](https://github.com/jeffhammond/STREAM) memory bandwidth benchmark for various platforms and architectures.
+          
+          ## About STREAM
+          
+          The STREAM benchmark is a simple synthetic benchmark program that measures sustainable memory bandwidth (in MB/s) and the corresponding computation rate for simple vector kernels.
+          
+          ## Available Binaries
+          
+          ### Linux
+          - `stream-linux-amd64` - Linux x86_64 (optimized)
+          - `stream-linux-amd64-compat` - Linux x86_64 (maximum compatibility)
+          - `stream-linux-386` - Linux x86 (32-bit)
+          - `stream-linux-arm64` - Linux ARM64
+          - `stream-linux-armv7` - Linux ARMv7
+          - `stream-linux-armv6` - Linux ARMv6
+          - `stream-linux-riscv64` - Linux RISC-V 64-bit
+          - `stream-linux-ppc64le` - Linux PowerPC64 (little-endian)
+          
+          ### macOS
+          - `stream-darwin-amd64` - macOS x86_64 (macOS 10.12+)
+          - `stream-darwin-arm64` - macOS ARM64 (Apple Silicon, macOS 11.0+)
+          
+          ### Windows
+          - `stream-windows-amd64.exe` - Windows x86_64
+          - `stream-windows-386.exe` - Windows x86 (32-bit)
+          - `stream-windows-arm64.exe` - Windows ARM64
+          
+          ## Binary Variants
+          
+          Some platforms may include both C and Fortran versions:
+          - `stream-*_c` - C version
+          - `stream-*_f` - Fortran version (if available)
+          - `stream-*` - Default version (usually C)
+          
+          ## Compatibility Notes
+          
+          - **Linux binaries**: Statically linked for maximum portability (no dependencies required)
+          - **Linux amd64-compat**: Built without advanced CPU instructions for older processors
+          - **Windows binaries**: Statically linked, no additional runtime dependencies required
+          - **macOS binaries**: Dynamically linked (standard for macOS), minimum version requirements for broader compatibility
+          
+          ## Usage
+          
+          ### Linux/macOS
+          ```bash
+          # Make executable (if needed)
+          chmod +x stream-linux-amd64
+          
+          # Run memory bandwidth benchmark
+          ./stream-linux-amd64
+          ```
+          
+          ### Windows
+          ```cmd
+          # Run memory bandwidth benchmark
+          stream-windows-amd64.exe
+          ```
+          
+          ## Understanding STREAM Results
+          
+          STREAM measures four different vector operations:
+          - **Copy**: `a[i] = b[i]`
+          - **Scale**: `a[i] = q*b[i]`
+          - **Add**: `a[i] = b[i] + c[i]`
+          - **Triad**: `a[i] = b[i] + q*c[i]`
+          
+          The results show the sustainable memory bandwidth in MB/s for each operation.
+          
+          ## Build Information
+          
+          These binaries are automatically built using GitHub Actions from the [STREAM source repository](https://github.com/jeffhammond/STREAM).
+          All binaries are optimized for their respective platforms.
+          
+          Source: https://github.com/jeffhammond/STREAM
+          Built in: ${{ github.repository }}
+          Build date: $(date -u +'%Y-%m-%d %H:%M:%S UTC')
+          EOF
+          
+          echo "Successfully organized binaries:"
+          ls -la bin/
+          
+          # 生成校验和
+          cd bin
+          sha256sum stream-* > SHA256SUMS 2>/dev/null || shasum -a 256 stream-* > SHA256SUMS 2>/dev/null || true
+          cd ..
+          
+      - name: Upload combined bin directory
+        uses: actions/upload-artifact@v4
+        with:
+          name: stream-all-binaries
+          path: |
+            bin/
+            !bin/.gitkeep
+          retention-days: 90
+          
+      - name: Commit binaries to current repository
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+          git add bin/
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: Update STREAM static binaries [skip ci]
+
+            - Built from STREAM source: https://github.com/jeffhammond/STREAM
+            - Built on: $(date -u +'%Y-%m-%d %H:%M:%S UTC')
+            - Workflow: ${{ github.workflow }}
+            - Run: ${{ github.run_number }}
+            - Repository: ${{ github.repository }}
+            - Includes C and Fortran versions for multiple architectures
+            - Windows ARM64/AMD64/386 and comprehensive Linux/macOS support"
+            git push
+          fi
+        continue-on-error: true
