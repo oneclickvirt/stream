@@ -660,44 +660,7 @@ jobs:
           # 生成校验和
           cd bin
           sha256sum stream-* > SHA256SUMS 2>/dev/null || shasum -a 256 stream-* > SHA256SUMS 2>/dev/null || true
-          cd ..
           
-          # 生成架构统计
-          echo "=== Architecture Coverage Report ===" > bin/ARCHITECTURES.md
-          echo "" >> bin/ARCHITECTURES.md
-          echo "Built binaries by architecture:" >> bin/ARCHITECTURES.md
-          echo "" >> bin/ARCHITECTURES.md
-          
-          for arch in amd64 386 arm64 arm riscv64 ppc64le ppc64 s390x mips mipsle mips64 mips64le; do
-            count=$(ls bin/stream-linux-${arch}* 2>/dev/null | grep -v "FAILED" | wc -l)
-            failed_file="bin/FAILED-linux-${arch}.txt"
-            if [ $count -gt 0 ]; then
-              echo "✅ linux-${arch}: $count binaries" >> bin/ARCHITECTURES.md
-              ls bin/stream-linux-${arch}* 2>/dev/null | grep -v "FAILED" | sed 's/^bin\//  - /' >> bin/ARCHITECTURES.md
-            elif [ -f "$failed_file" ]; then
-              echo "❌ linux-${arch}: build failed - $(cat "$failed_file")" >> bin/ARCHITECTURES.md
-            else
-              echo "⚠️  linux-${arch}: no artifacts found (build may have been skipped)" >> bin/ARCHITECTURES.md
-            fi
-            echo "" >> bin/ARCHITECTURES.md
-          done
-          
-          # 统计其他平台
-          darwin_count=$(ls bin/stream-darwin-* 2>/dev/null | grep -v "FAILED" | wc -l)
-          windows_count=$(ls bin/stream-windows-* 2>/dev/null | grep -v "FAILED" | wc -l)
-          
-          echo "Other platforms:" >> bin/ARCHITECTURES.md
-          echo "✅ macOS: $darwin_count binaries" >> bin/ARCHITECTURES.md
-          echo "✅ Windows: $windows_count binaries" >> bin/ARCHITECTURES.md
-          echo "" >> bin/ARCHITECTURES.md
-          
-          total_binaries=$(ls bin/stream-* 2>/dev/null | grep -v -E '\.(md|txt)' | grep -v "FAILED" | wc -l)
-          failed_builds=$(ls bin/FAILED-*.txt 2>/dev/null | wc -l)
-          echo "**Total: $total_binaries STREAM binaries built**" >> bin/ARCHITECTURES.md
-          if [ $failed_builds -gt 0 ]; then
-            echo "**Failed: $failed_builds build failures**" >> bin/ARCHITECTURES.md
-          fi
-
       - name: Configure Git for automated commits
         run: |
           git config --local user.email "action@github.com"
@@ -714,21 +677,12 @@ jobs:
           # 检查是否有变化
           if [[ $(git status --porcelain bin/) ]]; then
             echo "Changes detected in bin/ directory, committing..."
-            
-            # 添加所有 bin/ 目录下的文件
             git add bin/
-            
-            # 创建提交信息
-            COMMIT_MSG="🚀 Auto-build: Update STREAM binaries from workflow run ${{ github.run_number }}"
-            
-            # 提交更改
+            COMMIT_MSG="Auto-build: Update STREAM binaries from workflow run ${{ github.run_number }}"
             git commit -m "$COMMIT_MSG"
-            
-            # 推送到 main 分支
             echo "Pushing binaries to main branch..."
             git push origin HEAD:main
-            
-            echo "✅ Successfully committed and pushed ${total_binaries} binaries to repository"
+            echo "Successfully committed and pushed ${total_binaries} binaries to repository"
           else
             echo "No changes detected in bin/ directory, skipping commit"
           fi
