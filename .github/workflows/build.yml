@@ -254,7 +254,6 @@ jobs:
           if [[ -n "${{ matrix.packages }}" ]]; then
             sudo apt-get install -y ${{ matrix.packages }} || {
               echo "Some packages failed to install, continuing anyway..."
-              # 对于一些可能不可用的架构，我们尝试继续
             }
           fi
 
@@ -555,16 +554,6 @@ jobs:
           - `stream-windows-386.exe` - Windows x86 (32-bit)
           - `stream-windows-arm64.exe` - Windows ARM64
           
-          ## Architecture Coverage
-          
-          This build now supports **ALL** Go-supported Linux architectures:
-          - **x86**: amd64, 386
-          - **ARM**: arm64, armv7, armv6
-          - **RISC-V**: riscv64
-          - **PowerPC**: ppc64, ppc64le
-          - **IBM Z**: s390x
-          - **MIPS**: mips, mipsle, mips64, mips64le
-          
           ## Binary Variants
           
           Some platforms may include both C and Fortran versions:
@@ -607,38 +596,6 @@ jobs:
           
           The results show the sustainable memory bandwidth in MB/s for each operation.
           
-          ## Architecture-Specific Notes
-          
-          ### Mainstream Architectures
-          - **amd64/386**: Fully optimized with SSE/AVX support (amd64) or i686 compatibility (386)
-          - **arm64**: ARMv8-A optimizations enabled
-          - **armv7/armv6**: Hardware floating-point support where available
-          
-          ### Exotic Architectures
-          - **MIPS variants**: May require QEMU emulation during build, basic optimization only
-          - **PowerPC**: Both big-endian (ppc64) and little-endian (ppc64le) support
-          - **s390x**: IBM Z mainframe architecture support
-          - **RISC-V**: Modern RISC-V 64-bit support
-          
-          ### Build Quality
-          - **Tier 1**: amd64, 386, arm64, armv7 - Fully tested and optimized
-          - **Tier 2**: ppc64le, riscv64, armv6 - Good support, less testing
-          - **Tier 3**: mips*, ppc64, s390x - Basic support, may have compilation issues
-          
-          ## Troubleshooting
-          
-          ### If a binary doesn't work:
-          1. Check architecture: `uname -m` on Linux/macOS
-          2. Try the compatibility version: `stream-linux-amd64-compat`
-          3. Check for missing dependencies: `ldd stream-linux-*` (should show "statically linked")
-          4. Verify executable permissions: `chmod +x stream-linux-*`
-          
-          ### Performance Notes:
-          - Results vary significantly between architectures
-          - Memory bandwidth is often the limiting factor, not CPU performance
-          - Static linking may slightly reduce performance vs. dynamic linking
-          - Some exotic architectures may show lower performance due to cross-compilation limitations
-          
           ## Build Information
           
           These binaries are automatically built using GitHub Actions from the [STREAM source repository](https://github.com/jeffhammond/STREAM).
@@ -649,9 +606,6 @@ jobs:
           - LLVM-MinGW for Windows ARM64
           - Native Clang/GCC for macOS
           - QEMU emulation for MIPS architectures during build
-          
-          Built in: ${{ github.repository }}
-          Covers all Go-supported Linux architectures as of 2024.
           EOF
           
           echo "Successfully organized binaries:"
