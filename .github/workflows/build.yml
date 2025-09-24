@@ -175,26 +175,40 @@ jobs:
           LATEST_RELEASE=$(curl -s https://api.github.com/repos/mstorsjo/llvm-mingw/releases/latest | grep "tag_name" | cut -d '"' -f 4)
           echo "Latest LLVM-MinGW version: $LATEST_RELEASE"
           
-          # 下载最新版本的 LLVM-MinGW
-          DOWNLOAD_URL="https://github.com/mstorsjo/llvm-mingw/releases/download/${LATEST_RELEASE}/llvm-mingw-${LATEST_RELEASE}-ucrt-ubuntu-20.04-x86_64.tar.xz"
+          # 对于 Windows ARM64，我们需要 aarch64 版本
+          # 使用正确的文件名格式
+          DOWNLOAD_URL="https://github.com/mstorsjo/llvm-mingw/releases/download/${LATEST_RELEASE}/llvm-mingw-${LATEST_RELEASE}-ucrt-ubuntu-22.04-x86_64.tar.xz"
           echo "Downloading: $DOWNLOAD_URL"
           
           wget "$DOWNLOAD_URL" -O llvm-mingw.tar.xz || {
-            echo "Failed to download, trying alternative naming..."
-            # 尝试其他可能的文件名格式
-            wget "https://github.com/mstorsjo/llvm-mingw/releases/download/${LATEST_RELEASE}/llvm-mingw-${LATEST_RELEASE}-msvcrt-ubuntu-20.04-x86_64.tar.xz" -O llvm-mingw.tar.xz || {
-              echo "Trying without ubuntu version..."
-              wget "https://github.com/mstorsjo/llvm-mingw/releases/download/${LATEST_RELEASE}/llvm-mingw-${LATEST_RELEASE}-ucrt-x86_64.tar.xz" -O llvm-mingw.tar.xz
+            echo "Primary download failed, trying alternative versions..."
+            # 尝试其他版本
+            wget "https://github.com/mstorsjo/llvm-mingw/releases/download/${LATEST_RELEASE}/llvm-mingw-${LATEST_RELEASE}-msvcrt-ubuntu-22.04-x86_64.tar.xz" -O llvm-mingw.tar.xz || {
+              echo "Ubuntu 22.04 failed, trying Ubuntu 20.04..."
+              wget "https://github.com/mstorsjo/llvm-mingw/releases/download/${LATEST_RELEASE}/llvm-mingw-${LATEST_RELEASE}-ucrt-ubuntu-20.04-x86_64.tar.xz" -O llvm-mingw.tar.xz || {
+                echo "All downloads failed, using hardcoded latest version 20250910..."
+                wget "https://github.com/mstorsjo/llvm-mingw/releases/download/20250910/llvm-mingw-20250910-ucrt-ubuntu-22.04-x86_64.tar.xz" -O llvm-mingw.tar.xz
+              }
             }
           }
           
+          # 解压并安装
           tar -xf llvm-mingw.tar.xz
           sudo mv llvm-mingw-* /opt/llvm-mingw
           echo "/opt/llvm-mingw/bin" >> $GITHUB_PATH
           
-          # 验证安装
-          ls -la /opt/llvm-mingw/bin/ | grep aarch64 || echo "ARM64 compilers not found, checking available compilers:"
-          ls -la /opt/llvm-mingw/bin/
+          # 验证安装 - 检查可用的编译器
+          echo "Available compilers:"
+          ls -la /opt/llvm-mingw/bin/ | grep -E "(clang|gcc|gfortran)" || true
+          
+          # 验证 ARM64 交叉编译器
+          if ls /opt/llvm-mingw/bin/*aarch64* 1> /dev/null 2>&1; then
+            echo "ARM64 cross-compilers found:"
+            ls -la /opt/llvm-mingw/bin/*aarch64*
+          else
+            echo "Warning: ARM64 cross-compilers not found, listing all available:"
+            ls -la /opt/llvm-mingw/bin/
+          fi
 
       - name: Setup build environment (macOS)
         if: runner.os == 'macOS'
