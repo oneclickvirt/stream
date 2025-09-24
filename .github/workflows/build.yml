@@ -461,7 +461,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: stream-${{ matrix.target }}
-          path: bin/stream-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm && 'v' }}${{ matrix.goarm }}*
+          path: |
+            bin/stream-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm && 'v' }}${{ matrix.goarm }}*
+            bin/FAILED-${{ matrix.target }}.txt
           retention-days: 30
         continue-on-error: true
 
