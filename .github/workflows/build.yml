@@ -159,7 +159,7 @@ jobs:
             goarch: amd64
             cc: clang
             fc: gfortran
-            cflags: "-O3 -arch x86_64 -mmacosx-version-min=10.12 -fopenmp=libgomp"
+            cflags: "-O3 -arch x86_64 -mmacosx-version-min=10.12 -Xpreprocessor -fopenmp"
             fflags: "-O3 -arch x86_64 -mmacosx-version-min=10.12 -fopenmp"
             setup_fortran: true
             use_openmp: true
@@ -169,7 +169,7 @@ jobs:
             goarch: arm64
             cc: clang
             fc: gfortran
-            cflags: "-O3 -arch arm64 -mmacosx-version-min=11.0 -fopenmp=libgomp"
+            cflags: "-O3 -arch arm64 -mmacosx-version-min=11.0 -Xpreprocessor -fopenmp"
             fflags: "-O3 -arch arm64 -mmacosx-version-min=11.0 -fopenmp"
             setup_fortran: true
             use_openmp: true
@@ -657,5 +657,5 @@ jobs:
           echo "✅ Windows: $windows_count binaries" >> bin/ARCHITECTURES.md
           echo "" >> bin/ARCHITECTURES.md
           
-          total_binaries=$(ls bin/stream-* 2>/dev/null | grep -v -E '\.(md|txt) | wc -l)
+          total_binaries=$(ls bin/stream-* 2>/dev/null | grep -v -E '\.(md|txt)' | wc -l)
           echo "**Total: $total_binaries STREAM binaries built**" >> bin/ARCHITECTURES.md
