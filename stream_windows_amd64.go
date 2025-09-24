@@ -15,9 +15,6 @@ import (
 //go:embed bin/stream-windows-amd64.exe
 var binFiles embed.FS
 
-//go:embed bin/stream-windows-amd64.exe
-var binFiles embed.FS
-
 func GetStream() (streamCmd string, tempFile string, err error) {
     var errors []string
     if path, lookErr := exec.LookPath("stream.exe"); lookErr == nil {
