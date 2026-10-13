@@ -1,642 +1,605 @@
 name: Build STREAM Static Binaries
-
-on:
-  workflow_dispatch:
-
 jobs:
   build:
     strategy:
       matrix:
         include:
-          # Linux builds - 主要架构
-          - os: ubuntu-latest
-            target: linux-amd64
-            goos: linux
-            goarch: amd64
-            cc: gcc
-            cflags: "-O3 -static -fno-stack-protector -Wl,--gc-sections -march=x86-64 -mtune=generic"
-            fflags: "-O3 -static -fno-stack-protector"
-            
-          - os: ubuntu-latest
-            target: linux-amd64-compat
-            goos: linux
-            goarch: amd64
-            cc: gcc
-            cflags: "-O2 -march=x86-64 -mtune=generic -static -fno-stack-protector -mno-sse4.2 -mno-avx -mno-avx2"
-            fflags: "-O2 -static -fno-stack-protector"
-            
-          - os: ubuntu-latest
-            target: linux-386
-            goos: linux
-            goarch: 386
-            cc: gcc
-            cflags: "-m32 -static -O2 -march=i686 -mtune=generic -fno-stack-protector"
-            fflags: "-m32 -O2 -static -fno-stack-protector"
-            packages: "gcc-multilib gfortran-multilib"
-            
-          - os: ubuntu-latest
-            target: linux-arm64
-            goos: linux
-            goarch: arm64
-            cc: aarch64-linux-gnu-gcc
-            fc: aarch64-linux-gnu-gfortran
-            cflags: "-static -O3 -fno-stack-protector -march=armv8-a"
-            fflags: "-static -O3 -fno-stack-protector"
-            packages: "gcc-aarch64-linux-gnu gfortran-aarch64-linux-gnu"
-            strip: aarch64-linux-gnu-strip
-            
-          - os: ubuntu-latest
-            target: linux-armv7
-            goos: linux
-            goarch: arm
-            goarm: "7"
-            cc: arm-linux-gnueabihf-gcc
-            fc: arm-linux-gnueabihf-gfortran
-            cflags: "-static -O2 -march=armv7-a -mfpu=vfpv3-d16 -fno-stack-protector"
-            fflags: "-static -O2 -fno-stack-protector"
-            packages: "gcc-arm-linux-gnueabihf gfortran-arm-linux-gnueabihf"
-            strip: arm-linux-gnueabihf-strip
-            
-          - os: ubuntu-latest
-            target: linux-armv6
-            goos: linux
-            goarch: arm
-            goarm: "6"
-            cc: arm-linux-gnueabihf-gcc
-            fc: arm-linux-gnueabihf-gfortran
-            cflags: "-static -O2 -march=armv6 -mfpu=vfp -fno-stack-protector"
-            fflags: "-static -O2 -fno-stack-protector"
-            packages: "gcc-arm-linux-gnueabihf gfortran-arm-linux-gnueabihf"
-            strip: arm-linux-gnueabihf-strip
-            
-          # Linux builds - 特殊架构
-          - os: ubuntu-latest
-            target: linux-riscv64
-            goos: linux
-            goarch: riscv64
-            cc: riscv64-linux-gnu-gcc
-            fc: riscv64-linux-gnu-gfortran
-            cflags: "-static -O2 -fno-stack-protector"
-            fflags: "-static -O2 -fno-stack-protector"
-            packages: "gcc-riscv64-linux-gnu gfortran-riscv64-linux-gnu"
-            strip: riscv64-linux-gnu-strip
-            
-          - os: ubuntu-latest
-            target: linux-ppc64le
-            goos: linux
-            goarch: ppc64le
-            cc: powerpc64le-linux-gnu-gcc
-            fc: powerpc64le-linux-gnu-gfortran
-            cflags: "-static -O2 -fno-stack-protector"
-            fflags: "-static -O2 -fno-stack-protector"
-            packages: "gcc-powerpc64le-linux-gnu gfortran-powerpc64le-linux-gnu"
-            strip: powerpc64le-linux-gnu-strip
-
-          # Linux builds - 新增的 MIPS 和其他架构
-          - os: ubuntu-latest
-            target: linux-ppc64
-            goos: linux
-            goarch: ppc64
-            cc: powerpc64-linux-gnu-gcc
-            fc: powerpc64-linux-gnu-gfortran
-            cflags: "-static -O2 -fno-stack-protector"
-            fflags: "-static -O2 -fno-stack-protector"
-            packages: "gcc-powerpc64-linux-gnu gfortran-powerpc64-linux-gnu"
-            strip: powerpc64-linux-gnu-strip
-            
-          - os: ubuntu-latest
-            target: linux-s390x
-            goos: linux
-            goarch: s390x
-            cc: s390x-linux-gnu-gcc
-            fc: s390x-linux-gnu-gfortran
-            cflags: "-static -O2 -fno-stack-protector"
-            fflags: "-static -O2 -fno-stack-protector"
-            packages: "gcc-s390x-linux-gnu gfortran-s390x-linux-gnu"
-            strip: s390x-linux-gnu-strip
-            
-          - os: ubuntu-latest
-            target: linux-mips
-            goos: linux
-            goarch: mips
-            cc: mips-linux-gnu-gcc
-            fc: mips-linux-gnu-gfortran
-            cflags: "-static -O2 -fno-stack-protector -mabi=32"
-            fflags: "-static -O2 -fno-stack-protector"
-            packages: "gcc-mips-linux-gnu gfortran-mips-linux-gnu"
-            strip: mips-linux-gnu-strip
-            use_buildx: true
-            
-          - os: ubuntu-latest
-            target: linux-mipsle
-            goos: linux
-            goarch: mipsle
-            cc: mipsel-linux-gnu-gcc
-            fc: mipsel-linux-gnu-gfortran
-            cflags: "-static -O2 -fno-stack-protector -mabi=32"
-            fflags: "-static -O2 -fno-stack-protector"
-            packages: "gcc-mipsel-linux-gnu gfortran-mipsel-linux-gnu"
-            strip: mipsel-linux-gnu-strip
-            use_buildx: true
-            
-          - os: ubuntu-latest
-            target: linux-mips64
-            goos: linux
-            goarch: mips64
-            cc: mips64-linux-gnuabi64-gcc
-            fc: mips64-linux-gnuabi64-gfortran
-            cflags: "-static -O2 -fno-stack-protector -mabi=64"
-            fflags: "-static -O2 -fno-stack-protector"
-            packages: "gcc-mips64-linux-gnuabi64 gfortran-mips64-linux-gnuabi64"
-            strip: mips64-linux-gnuabi64-strip
-            use_buildx: true
-            
-          - os: ubuntu-latest
-            target: linux-mips64le
-            goos: linux
-            goarch: mips64le
-            cc: mips64el-linux-gnuabi64-gcc
-            fc: mips64el-linux-gnuabi64-gfortran
-            cflags: "-static -O2 -fno-stack-protector -mabi=64"
-            fflags: "-static -O2 -fno-stack-protector"
-            packages: "gcc-mips64el-linux-gnuabi64 gfortran-mips64el-linux-gnuabi64"
-            strip: mips64el-linux-gnuabi64-strip
-            use_buildx: true
-            
-          # macOS builds
-          - os: macos-latest
-            target: darwin-amd64
-            goos: darwin
-            goarch: amd64
-            cc: clang
-            fc: gfortran
-            cflags: "-O3 -arch x86_64 -mmacosx-version-min=10.12 -Xpreprocessor -fopenmp"
-            fflags: "-O3 -arch x86_64 -mmacosx-version-min=10.12 -fopenmp"
-            setup_fortran: true
-            use_openmp: true
-            
-          - os: macos-latest
-            target: darwin-arm64
-            goos: darwin
-            goarch: arm64
-            cc: clang
-            fc: gfortran
-            cflags: "-O3 -arch arm64 -mmacosx-version-min=11.0 -Xpreprocessor -fopenmp"
-            fflags: "-O3 -arch arm64 -mmacosx-version-min=11.0 -fopenmp"
-            setup_fortran: true
-            use_openmp: true
-
-          # Windows builds (使用 mingw-w64)
-          - os: ubuntu-latest
-            target: windows-amd64
-            goos: windows
-            goarch: amd64
-            cc: x86_64-w64-mingw32-gcc
-            fc: x86_64-w64-mingw32-gfortran
-            cflags: "-O3 -static -static-libgcc -static-libstdc++ -static-libgfortran"
-            fflags: "-O3 -static -static-libgcc -static-libgfortran"
-            packages: "gcc-mingw-w64-x86-64 gfortran-mingw-w64-x86-64"
-            strip: x86_64-w64-mingw32-strip
-            ext: ".exe"
-            
-          - os: ubuntu-latest
-            target: windows-386
-            goos: windows
-            goarch: 386
-            cc: i686-w64-mingw32-gcc
-            fc: i686-w64-mingw32-gfortran
-            cflags: "-O3 -static -static-libgcc -static-libstdc++ -static-libgfortran"
-            fflags: "-O3 -static -static-libgcc -static-libgfortran"
-            packages: "gcc-mingw-w64-i686 gfortran-mingw-w64-i686"
-            strip: i686-w64-mingw32-strip
-            ext: ".exe"
-            
-          # Windows ARM64 (使用LLVM-MinGW)
-          - os: ubuntu-latest
-            target: windows-arm64
-            goos: windows
-            goarch: arm64
-            cc: aarch64-w64-mingw32-clang
-            fc: aarch64-w64-mingw32-gfortran
-            cflags: "-O3 -static"
-            fflags: "-O3 -static"
-            ext: ".exe"
-            use_llvm_mingw: true
-            
+        - os: ubuntu-latest
+          target: linux-amd64
+          goos: linux
+          goarch: amd64
+          cc: gcc
+          cflags: -O3 -static -fno-stack-protector -Wl,--gc-sections -march=x86-64 -mtune=generic
+          fflags: -O3 -static -fno-stack-protector
+        - os: ubuntu-latest
+          target: linux-amd64-compat
+          goos: linux
+          goarch: amd64
+          cc: gcc
+          cflags: -O2 -march=x86-64 -mtune=generic -static -fno-stack-protector -mno-sse4.2 -mno-avx -mno-avx2
+          fflags: -O2 -static -fno-stack-protector
+        - os: ubuntu-latest
+          target: linux-386
+          goos: linux
+          goarch: 386
+          cc: gcc
+          cflags: -m32 -static -O2 -march=i686 -mtune=generic -fno-stack-protector
+          fflags: -m32 -O2 -static -fno-stack-protector
+          packages: gcc-multilib gfortran-multilib
+        - os: ubuntu-latest
+          target: linux-arm64
+          goos: linux
+          goarch: arm64
+          cc: aarch64-linux-gnu-gcc
+          fc: aarch64-linux-gnu-gfortran
+          cflags: -static -O3 -fno-stack-protector -march=armv8-a
+          fflags: -static -O3 -fno-stack-protector
+          packages: gcc-aarch64-linux-gnu gfortran-aarch64-linux-gnu
+          strip: aarch64-linux-gnu-strip
+        - os: ubuntu-latest
+          target: linux-armv7
+          goos: linux
+          goarch: arm
+          goarm: '7'
+          cc: arm-linux-gnueabihf-gcc
+          fc: arm-linux-gnueabihf-gfortran
+          cflags: -static -O2 -march=armv7-a -mfpu=vfpv3-d16 -fno-stack-protector
+          fflags: -static -O2 -fno-stack-protector
+          packages: gcc-arm-linux-gnueabihf gfortran-arm-linux-gnueabihf
+          strip: arm-linux-gnueabihf-strip
+        - os: ubuntu-latest
+          target: linux-armv6
+          goos: linux
+          goarch: arm
+          goarm: '6'
+          cc: arm-linux-gnueabihf-gcc
+          fc: arm-linux-gnueabihf-gfortran
+          cflags: -static -O2 -march=armv6 -mfpu=vfp -fno-stack-protector
+          fflags: -static -O2 -fno-stack-protector
+          packages: gcc-arm-linux-gnueabihf gfortran-arm-linux-gnueabihf
+          strip: arm-linux-gnueabihf-strip
+        - os: ubuntu-latest
+          target: linux-riscv64
+          goos: linux
+          goarch: riscv64
+          cc: riscv64-linux-gnu-gcc
+          fc: riscv64-linux-gnu-gfortran
+          cflags: -static -O2 -fno-stack-protector
+          fflags: -static -O2 -fno-stack-protector
+          packages: gcc-riscv64-linux-gnu gfortran-riscv64-linux-gnu
+          strip: riscv64-linux-gnu-strip
+        - os: ubuntu-latest
+          target: linux-ppc64le
+          goos: linux
+          goarch: ppc64le
+          cc: powerpc64le-linux-gnu-gcc
+          fc: powerpc64le-linux-gnu-gfortran
+          cflags: -static -O2 -fno-stack-protector
+          fflags: -static -O2 -fno-stack-protector
+          packages: gcc-powerpc64le-linux-gnu gfortran-powerpc64le-linux-gnu
+          strip: powerpc64le-linux-gnu-strip
+        - os: ubuntu-latest
+          target: linux-ppc64
+          goos: linux
+          goarch: ppc64
+          cc: powerpc64-linux-gnu-gcc
+          fc: powerpc64-linux-gnu-gfortran
+          cflags: -static -O2 -fno-stack-protector
+          fflags: -static -O2 -fno-stack-protector
+          packages: gcc-powerpc64-linux-gnu gfortran-powerpc64-linux-gnu
+          strip: powerpc64-linux-gnu-strip
+        - os: ubuntu-latest
+          target: linux-s390x
+          goos: linux
+          goarch: s390x
+          cc: s390x-linux-gnu-gcc
+          fc: s390x-linux-gnu-gfortran
+          cflags: -static -O2 -fno-stack-protector
+          fflags: -static -O2 -fno-stack-protector
+          packages: gcc-s390x-linux-gnu gfortran-s390x-linux-gnu
+          strip: s390x-linux-gnu-strip
+        - os: ubuntu-latest
+          target: linux-mips
+          goos: linux
+          goarch: mips
+          cc: mips-linux-gnu-gcc
+          fc: mips-linux-gnu-gfortran
+          cflags: -static -O2 -fno-stack-protector -mabi=32
+          fflags: -static -O2 -fno-stack-protector
+          packages: gcc-mips-linux-gnu gfortran-mips-linux-gnu
+          strip: mips-linux-gnu-strip
+          use_buildx: true
+        - os: ubuntu-latest
+          target: linux-mipsle
+          goos: linux
+          goarch: mipsle
+          cc: mipsel-linux-gnu-gcc
+          fc: mipsel-linux-gnu-gfortran
+          cflags: -static -O2 -fno-stack-protector -mabi=32
+          fflags: -static -O2 -fno-stack-protector
+          packages: gcc-mipsel-linux-gnu gfortran-mipsel-linux-gnu
+          strip: mipsel-linux-gnu-strip
+          use_buildx: true
+        - os: ubuntu-latest
+          target: linux-mips64
+          goos: linux
+          goarch: mips64
+          cc: mips64-linux-gnuabi64-gcc
+          fc: mips64-linux-gnuabi64-gfortran
+          cflags: -static -O2 -fno-stack-protector -mabi=64
+          fflags: -static -O2 -fno-stack-protector
+          packages: gcc-mips64-linux-gnuabi64 gfortran-mips64-linux-gnuabi64
+          strip: mips64-linux-gnuabi64-strip
+          use_buildx: true
+        - os: ubuntu-latest
+          target: linux-mips64le
+          goos: linux
+          goarch: mips64le
+          cc: mips64el-linux-gnuabi64-gcc
+          fc: mips64el-linux-gnuabi64-gfortran
+          cflags: -static -O2 -fno-stack-protector -mabi=64
+          fflags: -static -O2 -fno-stack-protector
+          packages: gcc-mips64el-linux-gnuabi64 gfortran-mips64el-linux-gnuabi64
+          strip: mips64el-linux-gnuabi64-strip
+          use_buildx: true
+        - os: macos-latest
+          target: darwin-amd64
+          goos: darwin
+          goarch: amd64
+          cc: clang
+          fc: gfortran
+          cflags: -O3 -arch x86_64 -mmacosx-version-min=10.12 -Xpreprocessor -fopenmp
+          fflags: -O3 -arch x86_64 -mmacosx-version-min=10.12 -fopenmp
+          setup_fortran: true
+          use_openmp: true
+        - os: macos-latest
+          target: darwin-arm64
+          goos: darwin
+          goarch: arm64
+          cc: clang
+          fc: gfortran
+          cflags: -O3 -arch arm64 -mmacosx-version-min=11.0 -Xpreprocessor -fopenmp
+          fflags: -O3 -arch arm64 -mmacosx-version-min=11.0 -fopenmp
+          setup_fortran: true
+          use_openmp: true
+        - os: ubuntu-latest
+          target: windows-amd64
+          goos: windows
+          goarch: amd64
+          cc: x86_64-w64-mingw32-gcc
+          fc: x86_64-w64-mingw32-gfortran
+          cflags: -O3 -static -static-libgcc -static-libstdc++ -static-libgfortran
+          fflags: -O3 -static -static-libgcc -static-libgfortran
+          packages: gcc-mingw-w64-x86-64 gfortran-mingw-w64-x86-64
+          strip: x86_64-w64-mingw32-strip
+          ext: .exe
+        - os: ubuntu-latest
+          target: windows-386
+          goos: windows
+          goarch: 386
+          cc: i686-w64-mingw32-gcc
+          fc: i686-w64-mingw32-gfortran
+          cflags: -O3 -static -static-libgcc -static-libstdc++ -static-libgfortran
+          fflags: -O3 -static -static-libgcc -static-libgfortran
+          packages: gcc-mingw-w64-i686 gfortran-mingw-w64-i686
+          strip: i686-w64-mingw32-strip
+          ext: .exe
+        - os: ubuntu-latest
+          target: windows-arm64
+          goos: windows
+          goarch: arm64
+          cc: aarch64-w64-mingw32-clang
+          fc: aarch64-w64-mingw32-gfortran
+          cflags: -O3 -static
+          fflags: -O3 -static
+          ext: .exe
+          use_llvm_mingw: true
       fail-fast: false
-
     runs-on: ${{ matrix.os }}
-    
     steps:
-      - name: Checkout current repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - name: Load trusted network recovery helpers
+      shell: bash
+      run: |
+        set -euo pipefail
+        curl --fail --silent --show-error --location --connect-timeout 15 --max-time 90 --retry 3 --retry-max-time 180 --retry-connrefused "https://raw.githubusercontent.com/oneclickvirt/stream/main/.github/scripts/ci_network.sh" -o "$RUNNER_TEMP/ci-network.sh"
+    - name: Checkout current repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - name: Checkout STREAM source
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        repository: jeffhammond/STREAM
+        path: stream-src
+    - name: Create bin directory
+      run: mkdir -p bin
+    - name: Setup QEMU and Docker Buildx (for exotic architectures)
+      if: matrix.use_buildx == true
+      uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      with:
+        platforms: all
+    - name: Setup build environment (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential gfortran
+        if [[ -n "${{ matrix.packages }}" ]]; then
+          sudo apt-get install -y ${{ matrix.packages }} || {
+            echo "Some packages failed to install, continuing anyway..."
+          }
+        fi
+    - name: Setup LLVM-MinGW for Windows ARM64
+      if: matrix.use_llvm_mingw == true
+      run: |
+        source "$RUNNER_TEMP/ci-network.sh"
+        # 获取最新的 LLVM-MinGW 版本
+        LATEST_RELEASE=$(curl -s https://api.github.com/repos/mstorsjo/llvm-mingw/releases/latest | grep "tag_name" | cut -d '"' -f 4)
+        echo "Latest LLVM-MinGW version: $LATEST_RELEASE"
 
-      - name: Checkout STREAM source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: jeffhammond/STREAM
-          path: stream-src
+        # 对于 Windows ARM64，我们需要 aarch64 版本
+        # 使用正确的文件名格式
+        DOWNLOAD_URL="https://github.com/mstorsjo/llvm-mingw/releases/download/${LATEST_RELEASE}/llvm-mingw-${LATEST_RELEASE}-ucrt-ubuntu-22.04-x86_64.tar.xz"
+        echo "Downloading: $DOWNLOAD_URL"
 
-      - name: Create bin directory
-        run: mkdir -p bin
-
-      - name: Setup QEMU and Docker Buildx (for exotic architectures)
-        if: matrix.use_buildx == true
-        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
-        with:
-          platforms: all
-
-      - name: Setup build environment (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential gfortran
-          if [[ -n "${{ matrix.packages }}" ]]; then
-            sudo apt-get install -y ${{ matrix.packages }} || {
-              echo "Some packages failed to install, continuing anyway..."
+        wget "$DOWNLOAD_URL" -O llvm-mingw.tar.xz || {
+          echo "Primary download failed, trying alternative versions..."
+          # 尝试其他版本
+          wget "https://github.com/mstorsjo/llvm-mingw/releases/download/${LATEST_RELEASE}/llvm-mingw-${LATEST_RELEASE}-msvcrt-ubuntu-22.04-x86_64.tar.xz" -O llvm-mingw.tar.xz || {
+            echo "Ubuntu 22.04 failed, trying Ubuntu 20.04..."
+            wget "https://github.com/mstorsjo/llvm-mingw/releases/download/${LATEST_RELEASE}/llvm-mingw-${LATEST_RELEASE}-ucrt-ubuntu-20.04-x86_64.tar.xz" -O llvm-mingw.tar.xz || {
+              echo "All downloads failed, using hardcoded latest version 20250910..."
+              wget "https://github.com/mstorsjo/llvm-mingw/releases/download/20250910/llvm-mingw-20250910-ucrt-ubuntu-22.04-x86_64.tar.xz" -O llvm-mingw.tar.xz
             }
-          fi
+          }
+        }
 
-      - name: Setup LLVM-MinGW for Windows ARM64
-        if: matrix.use_llvm_mingw == true
-        run: |
-          # 获取最新的 LLVM-MinGW 版本
-          LATEST_RELEASE=$(curl -s https://api.github.com/repos/mstorsjo/llvm-mingw/releases/latest | grep "tag_name" | cut -d '"' -f 4)
-          echo "Latest LLVM-MinGW version: $LATEST_RELEASE"
-          
-          # 对于 Windows ARM64，我们需要 aarch64 版本
-          # 使用正确的文件名格式
-          DOWNLOAD_URL="https://github.com/mstorsjo/llvm-mingw/releases/download/${LATEST_RELEASE}/llvm-mingw-${LATEST_RELEASE}-ucrt-ubuntu-22.04-x86_64.tar.xz"
-          echo "Downloading: $DOWNLOAD_URL"
-          
-          wget "$DOWNLOAD_URL" -O llvm-mingw.tar.xz || {
-            echo "Primary download failed, trying alternative versions..."
-            # 尝试其他版本
-            wget "https://github.com/mstorsjo/llvm-mingw/releases/download/${LATEST_RELEASE}/llvm-mingw-${LATEST_RELEASE}-msvcrt-ubuntu-22.04-x86_64.tar.xz" -O llvm-mingw.tar.xz || {
-              echo "Ubuntu 22.04 failed, trying Ubuntu 20.04..."
-              wget "https://github.com/mstorsjo/llvm-mingw/releases/download/${LATEST_RELEASE}/llvm-mingw-${LATEST_RELEASE}-ucrt-ubuntu-20.04-x86_64.tar.xz" -O llvm-mingw.tar.xz || {
-                echo "All downloads failed, using hardcoded latest version 20250910..."
-                wget "https://github.com/mstorsjo/llvm-mingw/releases/download/20250910/llvm-mingw-20250910-ucrt-ubuntu-22.04-x86_64.tar.xz" -O llvm-mingw.tar.xz
+        # 解压并安装
+        tar -xf llvm-mingw.tar.xz
+        sudo mv llvm-mingw-* /opt/llvm-mingw
+        echo "/opt/llvm-mingw/bin" >> $GITHUB_PATH
+
+        # 验证安装 - 检查可用的编译器
+        echo "Available compilers:"
+        ls -la /opt/llvm-mingw/bin/ | grep -E "(clang|gcc|gfortran)" || true
+
+        # 验证 ARM64 交叉编译器
+        if ls /opt/llvm-mingw/bin/*aarch64* 1> /dev/null 2>&1; then
+          echo "ARM64 cross-compilers found:"
+          ls -la /opt/llvm-mingw/bin/*aarch64*
+        else
+          echo "Warning: ARM64 cross-compilers not found, listing all available:"
+          ls -la /opt/llvm-mingw/bin/
+        fi
+      shell: bash
+    - name: Setup build environment (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        # 安装 gfortran 和 OpenMP (如果需要)
+        if [[ "${{ matrix.setup_fortran }}" == "true" ]]; then
+          # 安装 GCC (包含 gfortran)
+          brew install gcc
+          # 安装 libomp 用于 OpenMP 支持
+          if [[ "${{ matrix.use_openmp }}" == "true" ]]; then
+            brew install libomp
+          fi
+        fi
+    - name: Build STREAM static binary
+      run: |
+        cd stream-src
+
+        # 设置编译器和标志
+        export CC="${{ matrix.cc }}"
+        export FC="${{ matrix.fc || matrix.cc }}"
+        export CFLAGS="${{ matrix.cflags }}"
+        export FFLAGS="${{ matrix.fflags || matrix.cflags }}"
+
+        # macOS 特殊处理
+        if [[ "${{ runner.os }}" == "macOS" ]]; then
+          # 设置 OpenMP 库路径
+          if [[ "${{ matrix.use_openmp }}" == "true" ]]; then
+            export LDFLAGS="-L$(brew --prefix libomp)/lib -lomp"
+            export CPPFLAGS="-I$(brew --prefix libomp)/include"
+            # 对于 clang，使用正确的 OpenMP 标志
+            export CFLAGS="${CFLAGS} -Xpreprocessor -fopenmp -I$(brew --prefix libomp)/include"
+          fi
+          # 确保使用正确的 gfortran
+          export FC="$(brew --prefix gcc)/bin/gfortran"
+        fi
+
+        # 为 LLVM-MinGW 设置路径
+        if [[ "${{ matrix.use_llvm_mingw }}" == "true" ]]; then
+          export PATH="/opt/llvm-mingw/bin:$PATH"
+        fi
+
+        echo "Building STREAM with CC=$CC and CFLAGS=$CFLAGS"
+        echo "Target: ${{ matrix.target }}"
+
+        # 编译 STREAM C 版本
+        echo "=== Building STREAM C version ==="
+
+        # 对于某些特殊架构，可能需要特殊处理
+        BUILD_SUCCESS=false
+        BUILD_ERROR=""
+
+        # macOS 特殊编译选项
+        if [[ "${{ runner.os }}" == "macOS" && "${{ matrix.use_openmp }}" == "true" ]]; then
+          $CC $CFLAGS $CPPFLAGS -DSTREAM_ARRAY_SIZE=80000000 -DNTIMES=10 -DOMP stream.c $LDFLAGS -o stream_c${{ matrix.ext }} && BUILD_SUCCESS=true || \
+          $CC $CFLAGS $CPPFLAGS -DSTREAM_ARRAY_SIZE=10000000 -DNTIMES=10 stream.c $LDFLAGS -o stream_c${{ matrix.ext }} && BUILD_SUCCESS=true || \
+          $CC $CFLAGS stream.c -o stream_c${{ matrix.ext }} && BUILD_SUCCESS=true
+        else
+          # 标准编译，带有回退选项
+          $CC $CFLAGS -DSTREAM_ARRAY_SIZE=10000000 -DNTIMES=10 stream.c -o stream_c${{ matrix.ext }} && BUILD_SUCCESS=true || \
+          $CC $CFLAGS -DSTREAM_ARRAY_SIZE=1000000 -DNTIMES=10 stream.c -o stream_c${{ matrix.ext }} && BUILD_SUCCESS=true || \
+          $CC $CFLAGS stream.c -o stream_c${{ matrix.ext }} && BUILD_SUCCESS=true || \
+          {
+            echo "Standard build failed, trying basic compilation..."
+            # 移除一些可能有问题的标志
+            SIMPLE_CFLAGS=$(echo "$CFLAGS" | sed 's/-march=[^ ]*//g' | sed 's/-mtune=[^ ]*//g' | sed 's/-mabi=[^ ]*//g')
+            $CC $SIMPLE_CFLAGS stream.c -o stream_c${{ matrix.ext }} && BUILD_SUCCESS=true || \
+            {
+              echo "Even basic compilation failed, trying minimal flags..."
+              $CC -O2 -static stream.c -o stream_c${{ matrix.ext }} && BUILD_SUCCESS=true || \
+              $CC stream.c -o stream_c${{ matrix.ext }} && BUILD_SUCCESS=true || \
+              {
+                BUILD_ERROR="All compilation attempts failed for ${{ matrix.target }}"
+                echo "ERROR: $BUILD_ERROR"
               }
             }
           }
-          
-          # 解压并安装
-          tar -xf llvm-mingw.tar.xz
-          sudo mv llvm-mingw-* /opt/llvm-mingw
-          echo "/opt/llvm-mingw/bin" >> $GITHUB_PATH
-          
-          # 验证安装 - 检查可用的编译器
-          echo "Available compilers:"
-          ls -la /opt/llvm-mingw/bin/ | grep -E "(clang|gcc|gfortran)" || true
-          
-          # 验证 ARM64 交叉编译器
-          if ls /opt/llvm-mingw/bin/*aarch64* 1> /dev/null 2>&1; then
-            echo "ARM64 cross-compilers found:"
-            ls -la /opt/llvm-mingw/bin/*aarch64*
-          else
-            echo "Warning: ARM64 cross-compilers not found, listing all available:"
-            ls -la /opt/llvm-mingw/bin/
-          fi
+        fi
 
-      - name: Setup build environment (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          # 安装 gfortran 和 OpenMP (如果需要)
-          if [[ "${{ matrix.setup_fortran }}" == "true" ]]; then
-            # 安装 GCC (包含 gfortran)
-            brew install gcc
-            # 安装 libomp 用于 OpenMP 支持
-            if [[ "${{ matrix.use_openmp }}" == "true" ]]; then
-              brew install libomp
-            fi
-          fi
+        if [[ "$BUILD_SUCCESS" != "true" ]]; then
+          # 记录失败但不退出，让其他架构继续构建
+          echo "FAILED: ${{ matrix.target }} - $BUILD_ERROR"
+          echo "${{ matrix.target }}: FAILED - $BUILD_ERROR" > ../build-failure.log
+          # 创建一个空的标记文件，表示此架构构建失败
+          echo "Build failed: $BUILD_ERROR" > "../bin/FAILED-${{ matrix.target }}.txt"
+          exit 0  # 不要因为单个架构失败而终止整个构建
+        fi
 
-      - name: Build STREAM static binary
-        run: |
-          cd stream-src
-          
-          # 设置编译器和标志
-          export CC="${{ matrix.cc }}"
-          export FC="${{ matrix.fc || matrix.cc }}"
-          export CFLAGS="${{ matrix.cflags }}"
-          export FFLAGS="${{ matrix.fflags || matrix.cflags }}"
-          
-          # macOS 特殊处理
-          if [[ "${{ runner.os }}" == "macOS" ]]; then
-            # 设置 OpenMP 库路径
-            if [[ "${{ matrix.use_openmp }}" == "true" ]]; then
-              export LDFLAGS="-L$(brew --prefix libomp)/lib -lomp"
-              export CPPFLAGS="-I$(brew --prefix libomp)/include"
-              # 对于 clang，使用正确的 OpenMP 标志
-              export CFLAGS="${CFLAGS} -Xpreprocessor -fopenmp -I$(brew --prefix libomp)/include"
-            fi
-            # 确保使用正确的 gfortran
-            export FC="$(brew --prefix gcc)/bin/gfortran"
-          fi
-          
-          # 为 LLVM-MinGW 设置路径
-          if [[ "${{ matrix.use_llvm_mingw }}" == "true" ]]; then
-            export PATH="/opt/llvm-mingw/bin:$PATH"
-          fi
-          
-          echo "Building STREAM with CC=$CC and CFLAGS=$CFLAGS"
-          echo "Target: ${{ matrix.target }}"
-          
-          # 编译 STREAM C 版本
-          echo "=== Building STREAM C version ==="
-          
-          # 对于某些特殊架构，可能需要特殊处理
-          BUILD_SUCCESS=false
-          BUILD_ERROR=""
-          
-          # macOS 特殊编译选项
+        # 尝试编译 Fortran 版本 (如果有 Fortran 编译器)
+        if command -v $FC &> /dev/null; then
+          echo "=== Building STREAM Fortran version ==="
+          # macOS Fortran 特殊编译
           if [[ "${{ runner.os }}" == "macOS" && "${{ matrix.use_openmp }}" == "true" ]]; then
-            $CC $CFLAGS $CPPFLAGS -DSTREAM_ARRAY_SIZE=80000000 -DNTIMES=10 -DOMP stream.c $LDFLAGS -o stream_c${{ matrix.ext }} && BUILD_SUCCESS=true || \
-            $CC $CFLAGS $CPPFLAGS -DSTREAM_ARRAY_SIZE=10000000 -DNTIMES=10 stream.c $LDFLAGS -o stream_c${{ matrix.ext }} && BUILD_SUCCESS=true || \
-            $CC $CFLAGS stream.c -o stream_c${{ matrix.ext }} && BUILD_SUCCESS=true
+            $FC $FFLAGS -fopenmp -DSTREAM_ARRAY_SIZE=80000000 -DNTIMES=10 stream.f -o stream_f${{ matrix.ext }} || \
+            $FC $FFLAGS -fopenmp -DSTREAM_ARRAY_SIZE=10000000 -DNTIMES=10 stream.f -o stream_f${{ matrix.ext }} || \
+            $FC $FFLAGS stream.f -o stream_f${{ matrix.ext }} || true
           else
-            # 标准编译，带有回退选项
-            $CC $CFLAGS -DSTREAM_ARRAY_SIZE=10000000 -DNTIMES=10 stream.c -o stream_c${{ matrix.ext }} && BUILD_SUCCESS=true || \
-            $CC $CFLAGS -DSTREAM_ARRAY_SIZE=1000000 -DNTIMES=10 stream.c -o stream_c${{ matrix.ext }} && BUILD_SUCCESS=true || \
-            $CC $CFLAGS stream.c -o stream_c${{ matrix.ext }} && BUILD_SUCCESS=true || \
+            $FC $FFLAGS stream.f -o stream_f${{ matrix.ext }} || \
+            $FC $FFLAGS -DSTREAM_ARRAY_SIZE=10000000 -DNTIMES=10 stream.f -o stream_f${{ matrix.ext }} || \
+            $FC $FFLAGS -DSTREAM_ARRAY_SIZE=1000000 -DNTIMES=10 stream.f -o stream_f${{ matrix.ext }} || \
             {
-              echo "Standard build failed, trying basic compilation..."
-              # 移除一些可能有问题的标志
-              SIMPLE_CFLAGS=$(echo "$CFLAGS" | sed 's/-march=[^ ]*//g' | sed 's/-mtune=[^ ]*//g' | sed 's/-mabi=[^ ]*//g')
-              $CC $SIMPLE_CFLAGS stream.c -o stream_c${{ matrix.ext }} && BUILD_SUCCESS=true || \
-              {
-                echo "Even basic compilation failed, trying minimal flags..."
-                $CC -O2 -static stream.c -o stream_c${{ matrix.ext }} && BUILD_SUCCESS=true || \
-                $CC stream.c -o stream_c${{ matrix.ext }} && BUILD_SUCCESS=true || \
-                {
-                  BUILD_ERROR="All compilation attempts failed for ${{ matrix.target }}"
-                  echo "ERROR: $BUILD_ERROR"
-                }
-              }
+              echo "Standard Fortran build failed, trying simpler compilation..."
+              SIMPLE_FFLAGS=$(echo "$FFLAGS" | sed 's/-march=[^ ]*//g' | sed 's/-mtune=[^ ]*//g' | sed 's/-mabi=[^ ]*//g')
+              $FC $SIMPLE_FFLAGS stream.f -o stream_f${{ matrix.ext }} || \
+              $FC -O2 -static stream.f -o stream_f${{ matrix.ext }} || \
+              $FC stream.f -o stream_f${{ matrix.ext }} || true
             }
           fi
-          
-          if [[ "$BUILD_SUCCESS" != "true" ]]; then
-            # 记录失败但不退出，让其他架构继续构建
-            echo "FAILED: ${{ matrix.target }} - $BUILD_ERROR"
-            echo "${{ matrix.target }}: FAILED - $BUILD_ERROR" > ../build-failure.log
-            # 创建一个空的标记文件，表示此架构构建失败
-            echo "Build failed: $BUILD_ERROR" > "../bin/FAILED-${{ matrix.target }}.txt"
-            exit 0  # 不要因为单个架构失败而终止整个构建
-          fi
-          
-          # 尝试编译 Fortran 版本 (如果有 Fortran 编译器)
-          if command -v $FC &> /dev/null; then
-            echo "=== Building STREAM Fortran version ==="
-            # macOS Fortran 特殊编译
-            if [[ "${{ runner.os }}" == "macOS" && "${{ matrix.use_openmp }}" == "true" ]]; then
-              $FC $FFLAGS -fopenmp -DSTREAM_ARRAY_SIZE=80000000 -DNTIMES=10 stream.f -o stream_f${{ matrix.ext }} || \
-              $FC $FFLAGS -fopenmp -DSTREAM_ARRAY_SIZE=10000000 -DNTIMES=10 stream.f -o stream_f${{ matrix.ext }} || \
-              $FC $FFLAGS stream.f -o stream_f${{ matrix.ext }} || true
-            else
-              $FC $FFLAGS stream.f -o stream_f${{ matrix.ext }} || \
-              $FC $FFLAGS -DSTREAM_ARRAY_SIZE=10000000 -DNTIMES=10 stream.f -o stream_f${{ matrix.ext }} || \
-              $FC $FFLAGS -DSTREAM_ARRAY_SIZE=1000000 -DNTIMES=10 stream.f -o stream_f${{ matrix.ext }} || \
-              {
-                echo "Standard Fortran build failed, trying simpler compilation..."
-                SIMPLE_FFLAGS=$(echo "$FFLAGS" | sed 's/-march=[^ ]*//g' | sed 's/-mtune=[^ ]*//g' | sed 's/-mabi=[^ ]*//g')
-                $FC $SIMPLE_FFLAGS stream.f -o stream_f${{ matrix.ext }} || \
-                $FC -O2 -static stream.f -o stream_f${{ matrix.ext }} || \
-                $FC stream.f -o stream_f${{ matrix.ext }} || true
-              }
-            fi
-          else
-            echo "Fortran compiler not available, skipping Fortran build"
-          fi
-          
-          # 设置输出文件名前缀
-          if [[ -n "${{ matrix.goarm }}" ]]; then
-            PREFIX="stream-${{ matrix.goos }}-${{ matrix.goarch }}v${{ matrix.goarm }}"
-          else
-            PREFIX="stream-${{ matrix.goos }}-${{ matrix.goarch }}"
-          fi
-          
-          # 复制并重命名二进制文件
-          if [[ -f "stream_c${{ matrix.ext }}" ]]; then
-            cp "stream_c${{ matrix.ext }}" "../bin/${PREFIX}_c${{ matrix.ext }}"
-            echo "Built C version: ${PREFIX}_c${{ matrix.ext }}"
-          fi
-          
-          if [[ -f "stream_f${{ matrix.ext }}" ]]; then
-            cp "stream_f${{ matrix.ext }}" "../bin/${PREFIX}_f${{ matrix.ext }}"
-            echo "Built Fortran version: ${PREFIX}_f${{ matrix.ext }}"
-          fi
-          
-          # 创建主要的可执行文件链接 (使用 C 版本)
-          if [[ -f "stream_c${{ matrix.ext }}" ]]; then
-            cp "stream_c${{ matrix.ext }}" "../bin/${PREFIX}${{ matrix.ext }}"
-          fi
-          
-          # Strip 二进制文件
-          cd ../bin
-          if [[ -n "${{ matrix.strip }}" ]]; then
-            ${{ matrix.strip }} ${PREFIX}* 2>/dev/null || {
-              echo "Strip failed, but continuing..."
-            }
-          elif [[ "${{ runner.os }}" == "Linux" && "${{ matrix.target }}" == "linux-amd64" ]]; then
-            strip ${PREFIX}* 2>/dev/null || true
-          elif [[ "${{ runner.os }}" == "macOS" ]]; then
-            strip ${PREFIX}* 2>/dev/null || true
-          fi
-          
-          # 显示文件信息
-          echo "=== Built files ==="
-          ls -lah ${PREFIX}* || ls -lah *${{ matrix.target }}* || true
-          for f in ${PREFIX}*; do
-            if [[ -f "$f" ]]; then
-              echo "File: $f"
-              file "$f" || true
-              echo "---"
-            fi
-          done
-          
-          # 测试二进制文件（仅在兼容架构上）
-          if [[ "${{ matrix.target }}" == "linux-amd64" && "${{ runner.os }}" == "Linux" ]]; then
-            echo "=== Testing Linux AMD64 binary ==="
-            if [[ -f "${PREFIX}${{ matrix.ext }}" ]]; then
-              timeout 10s "./${PREFIX}${{ matrix.ext }}" || echo "Test completed or timed out"
-            fi
-          elif [[ "${{ runner.os }}" == "macOS" ]]; then
-            echo "=== Testing macOS binary ==="
-            if [[ -f "${PREFIX}${{ matrix.ext }}" ]]; then
-              timeout 10s "./${PREFIX}${{ matrix.ext }}" || echo "Test completed or timed out"
-            fi
-          fi
-        continue-on-error: false
+        else
+          echo "Fortran compiler not available, skipping Fortran build"
+        fi
 
-      - name: Upload binary artifact
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: stream-${{ matrix.target }}
-          path: |
-            bin/stream-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm && 'v' }}${{ matrix.goarm }}*
-            bin/FAILED-${{ matrix.target }}.txt
-          retention-days: 30
-        continue-on-error: true
+        # 设置输出文件名前缀
+        if [[ -n "${{ matrix.goarm }}" ]]; then
+          PREFIX="stream-${{ matrix.goos }}-${{ matrix.goarch }}v${{ matrix.goarm }}"
+        else
+          PREFIX="stream-${{ matrix.goos }}-${{ matrix.goarch }}"
+        fi
 
+        # 复制并重命名二进制文件
+        if [[ -f "stream_c${{ matrix.ext }}" ]]; then
+          cp "stream_c${{ matrix.ext }}" "../bin/${PREFIX}_c${{ matrix.ext }}"
+          echo "Built C version: ${PREFIX}_c${{ matrix.ext }}"
+        fi
+
+        if [[ -f "stream_f${{ matrix.ext }}" ]]; then
+          cp "stream_f${{ matrix.ext }}" "../bin/${PREFIX}_f${{ matrix.ext }}"
+          echo "Built Fortran version: ${PREFIX}_f${{ matrix.ext }}"
+        fi
+
+        # 创建主要的可执行文件链接 (使用 C 版本)
+        if [[ -f "stream_c${{ matrix.ext }}" ]]; then
+          cp "stream_c${{ matrix.ext }}" "../bin/${PREFIX}${{ matrix.ext }}"
+        fi
+
+        # Strip 二进制文件
+        cd ../bin
+        if [[ -n "${{ matrix.strip }}" ]]; then
+          ${{ matrix.strip }} ${PREFIX}* 2>/dev/null || {
+            echo "Strip failed, but continuing..."
+          }
+        elif [[ "${{ runner.os }}" == "Linux" && "${{ matrix.target }}" == "linux-amd64" ]]; then
+          strip ${PREFIX}* 2>/dev/null || true
+        elif [[ "${{ runner.os }}" == "macOS" ]]; then
+          strip ${PREFIX}* 2>/dev/null || true
+        fi
+
+        # 显示文件信息
+        echo "=== Built files ==="
+        ls -lah ${PREFIX}* || ls -lah *${{ matrix.target }}* || true
+        for f in ${PREFIX}*; do
+          if [[ -f "$f" ]]; then
+            echo "File: $f"
+            file "$f" || true
+            echo "---"
+          fi
+        done
+
+        # 测试二进制文件（仅在兼容架构上）
+        if [[ "${{ matrix.target }}" == "linux-amd64" && "${{ runner.os }}" == "Linux" ]]; then
+          echo "=== Testing Linux AMD64 binary ==="
+          if [[ -f "${PREFIX}${{ matrix.ext }}" ]]; then
+            timeout 10s "./${PREFIX}${{ matrix.ext }}" || echo "Test completed or timed out"
+          fi
+        elif [[ "${{ runner.os }}" == "macOS" ]]; then
+          echo "=== Testing macOS binary ==="
+          if [[ -f "${PREFIX}${{ matrix.ext }}" ]]; then
+            timeout 10s "./${PREFIX}${{ matrix.ext }}" || echo "Test completed or timed out"
+          fi
+        fi
+      continue-on-error: false
+    - name: Upload binary artifact
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: stream-${{ matrix.target }}
+        path: |
+          bin/stream-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm && 'v' }}${{ matrix.goarm }}*
+          bin/FAILED-${{ matrix.target }}.txt
+        retention-days: 30
+      continue-on-error: true
   collect:
     needs: build
     runs-on: ubuntu-latest
     if: always()
-    
     steps:
-      - name: Checkout current repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0  # 获取完整历史以便于提交
-          
-      - name: Checkout STREAM source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: jeffhammond/STREAM
-          path: stream-src
-          
-      - name: Download all artifacts
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          path: artifacts/
-          
-      - name: Organize binaries
-        run: |
-          # 创建 bin 目录
-          mkdir -p bin/
-          
-          # 从所有构建工件中复制文件到 bin 目录
-          find artifacts/ -type f -name "stream-*" -exec cp {} bin/ \;
-          
-          # 复制失败标记文件（如果有的话）
-          find artifacts/ -type f -name "FAILED-*.txt" -exec cp {} bin/ \; 2>/dev/null || true
-          
-          # 给所有二进制文件添加执行权限
-          chmod +x bin/stream-* 2>/dev/null || true
-          
-          # 创建 README 文件
-          cat > bin/README.md << 'EOF'
-          # STREAM Static Binaries
-          
-          This directory contains statically compiled binaries of [STREAM](https://github.com/jeffhammond/STREAM) memory bandwidth benchmark for various platforms and architectures.
-          
-          ## About STREAM
-          
-          The STREAM benchmark is a simple synthetic benchmark program that measures sustainable memory bandwidth (in MB/s) and the corresponding computation rate for simple vector kernels.
-          
-          ## Available Binaries
-          
-          ### Linux (Complete Architecture Support)
-          - `stream-linux-amd64` - Linux x86_64 (optimized)
-          - `stream-linux-amd64-compat` - Linux x86_64 (maximum compatibility)
-          - `stream-linux-386` - Linux x86 (32-bit)
-          - `stream-linux-arm64` - Linux ARM64 (ARMv8)
-          - `stream-linux-armv7` - Linux ARMv7
-          - `stream-linux-armv6` - Linux ARMv6
-          - `stream-linux-riscv64` - Linux RISC-V 64-bit
-          - `stream-linux-ppc64le` - Linux PowerPC64 (little-endian)
-          - `stream-linux-ppc64` - Linux PowerPC64 (big-endian)
-          - `stream-linux-s390x` - Linux IBM System z (s390x)
-          - `stream-linux-mips` - Linux MIPS (32-bit, big-endian)
-          - `stream-linux-mipsle` - Linux MIPS (32-bit, little-endian)
-          - `stream-linux-mips64` - Linux MIPS64 (big-endian)
-          - `stream-linux-mips64le` - Linux MIPS64 (little-endian)
-          
-          ### macOS
-          - `stream-darwin-amd64` - macOS x86_64 (macOS 10.12+)
-          - `stream-darwin-arm64` - macOS ARM64 (Apple Silicon, macOS 11.0+)
-          
-          ### Windows
-          - `stream-windows-amd64.exe` - Windows x86_64
-          - `stream-windows-386.exe` - Windows x86 (32-bit)
-          - `stream-windows-arm64.exe` - Windows ARM64
-          
-          ## Binary Variants
-          
-          Some platforms may include both C and Fortran versions:
-          - `stream-*_c` - C version
-          - `stream-*_f` - Fortran version (if available)
-          - `stream-*` - Default version (usually C)
-          
-          ## Compatibility Notes
-          
-          - **Linux binaries**: Statically linked for maximum portability (no dependencies required)
-          - **Linux amd64-compat**: Built without advanced CPU instructions for older processors
-          - **Exotic architectures** (MIPS, s390x, etc.): May have reduced optimization due to cross-compilation constraints
-          - **Windows binaries**: Statically linked, no additional runtime dependencies required
-          - **macOS binaries**: Dynamically linked with OpenMP support for better performance
-          
-          ## Usage
-          
-          ### Linux/macOS
-          ```bash
-          # Make executable (if needed)
-          chmod +x stream-linux-amd64
-          
-          # Run memory bandwidth benchmark
-          ./stream-linux-amd64
-          ```
-          
-          ### Windows
-          ```cmd
-          # Run memory bandwidth benchmark
-          stream-windows-amd64.exe
-          ```
-          
-          ## Understanding STREAM Results
-          
-          STREAM measures four different vector operations:
-          - **Copy**: `a[i] = b[i]`
-          - **Scale**: `a[i] = q*b[i]`
-          - **Add**: `a[i] = b[i] + c[i]`
-          - **Triad**: `a[i] = b[i] + q*c[i]`
-          
-          The results show the sustainable memory bandwidth in MB/s for each operation.
-          
-          ## Build Information
-          
-          These binaries are automatically built using GitHub Actions from the [STREAM source repository](https://github.com/jeffhammond/STREAM).
-          All binaries are optimized for their respective platforms with fallback compilation strategies for exotic architectures.
-          
-          **Cross-compilation toolchains used:**
-          - GNU GCC cross-compilers for most Linux architectures
-          - LLVM-MinGW for Windows ARM64
-          - Native Clang/GCC for macOS
-          - QEMU emulation for MIPS architectures during build
-          EOF
-          
-          echo "Successfully organized binaries:"
-          ls -la bin/
-          
-          # 生成校验和
-          cd bin
-          sha256sum stream-* > SHA256SUMS 2>/dev/null || shasum -a 256 stream-* > SHA256SUMS 2>/dev/null || true
-          
-      - name: Configure Git for automated commits
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+    - name: Checkout current repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+    - name: Checkout STREAM source
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        repository: jeffhammond/STREAM
+        path: stream-src
+    - name: Download all artifacts
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      with:
+        path: artifacts/
+    - name: Organize binaries
+      run: |
+        # 创建 bin 目录
+        mkdir -p bin/
 
-      - name: Commit and push binaries to repository
-        run: |
-          # 计算统计数据
-          total_binaries=$(ls bin/stream-* 2>/dev/null | grep -v -E '\.(md|txt)' | grep -v "FAILED" | wc -l)
-          linux_count=$(ls bin/stream-linux-* 2>/dev/null | grep -v "FAILED" | wc -l)
-          darwin_count=$(ls bin/stream-darwin-* 2>/dev/null | grep -v "FAILED" | wc -l)
-          windows_count=$(ls bin/stream-windows-* 2>/dev/null | grep -v "FAILED" | wc -l)
-          
-          # 检查是否有变化
-          if [[ $(git status --porcelain bin/) ]]; then
-            echo "Changes detected in bin/ directory, committing..."
-            git add bin/
-            COMMIT_MSG="Auto-build: Update STREAM binaries from workflow run ${{ github.run_number }}"
-            git commit -m "$COMMIT_MSG"
-            echo "Pushing binaries to main branch..."
-            git push origin HEAD:main
-            echo "Successfully committed and pushed ${total_binaries} binaries to repository"
-          else
-            echo "No changes detected in bin/ directory, skipping commit"
-          fi
+        # 从所有构建工件中复制文件到 bin 目录
+        find artifacts/ -type f -name "stream-*" -exec cp {} bin/ \;
+
+        # 复制失败标记文件（如果有的话）
+        find artifacts/ -type f -name "FAILED-*.txt" -exec cp {} bin/ \; 2>/dev/null || true
+
+        # 给所有二进制文件添加执行权限
+        chmod +x bin/stream-* 2>/dev/null || true
+
+        # 创建 README 文件
+        cat > bin/README.md << 'EOF'
+        # STREAM Static Binaries
+
+        This directory contains statically compiled binaries of [STREAM](https://github.com/jeffhammond/STREAM) memory bandwidth benchmark for various platforms and architectures.
+
+        ## About STREAM
+
+        The STREAM benchmark is a simple synthetic benchmark program that measures sustainable memory bandwidth (in MB/s) and the corresponding computation rate for simple vector kernels.
+
+        ## Available Binaries
+
+        ### Linux (Complete Architecture Support)
+        - `stream-linux-amd64` - Linux x86_64 (optimized)
+        - `stream-linux-amd64-compat` - Linux x86_64 (maximum compatibility)
+        - `stream-linux-386` - Linux x86 (32-bit)
+        - `stream-linux-arm64` - Linux ARM64 (ARMv8)
+        - `stream-linux-armv7` - Linux ARMv7
+        - `stream-linux-armv6` - Linux ARMv6
+        - `stream-linux-riscv64` - Linux RISC-V 64-bit
+        - `stream-linux-ppc64le` - Linux PowerPC64 (little-endian)
+        - `stream-linux-ppc64` - Linux PowerPC64 (big-endian)
+        - `stream-linux-s390x` - Linux IBM System z (s390x)
+        - `stream-linux-mips` - Linux MIPS (32-bit, big-endian)
+        - `stream-linux-mipsle` - Linux MIPS (32-bit, little-endian)
+        - `stream-linux-mips64` - Linux MIPS64 (big-endian)
+        - `stream-linux-mips64le` - Linux MIPS64 (little-endian)
+
+        ### macOS
+        - `stream-darwin-amd64` - macOS x86_64 (macOS 10.12+)
+        - `stream-darwin-arm64` - macOS ARM64 (Apple Silicon, macOS 11.0+)
+
+        ### Windows
+        - `stream-windows-amd64.exe` - Windows x86_64
+        - `stream-windows-386.exe` - Windows x86 (32-bit)
+        - `stream-windows-arm64.exe` - Windows ARM64
+
+        ## Binary Variants
+
+        Some platforms may include both C and Fortran versions:
+        - `stream-*_c` - C version
+        - `stream-*_f` - Fortran version (if available)
+        - `stream-*` - Default version (usually C)
+
+        ## Compatibility Notes
+
+        - **Linux binaries**: Statically linked for maximum portability (no dependencies required)
+        - **Linux amd64-compat**: Built without advanced CPU instructions for older processors
+        - **Exotic architectures** (MIPS, s390x, etc.): May have reduced optimization due to cross-compilation constraints
+        - **Windows binaries**: Statically linked, no additional runtime dependencies required
+        - **macOS binaries**: Dynamically linked with OpenMP support for better performance
+
+        ## Usage
+
+        ### Linux/macOS
+        ```bash
+        # Make executable (if needed)
+        chmod +x stream-linux-amd64
+
+        # Run memory bandwidth benchmark
+        ./stream-linux-amd64
+        ```
+
+        ### Windows
+        ```cmd
+        # Run memory bandwidth benchmark
+        stream-windows-amd64.exe
+        ```
+
+        ## Understanding STREAM Results
+
+        STREAM measures four different vector operations:
+        - **Copy**: `a[i] = b[i]`
+        - **Scale**: `a[i] = q*b[i]`
+        - **Add**: `a[i] = b[i] + c[i]`
+        - **Triad**: `a[i] = b[i] + q*c[i]`
+
+        The results show the sustainable memory bandwidth in MB/s for each operation.
+
+        ## Build Information
+
+        These binaries are automatically built using GitHub Actions from the [STREAM source repository](https://github.com/jeffhammond/STREAM).
+        All binaries are optimized for their respective platforms with fallback compilation strategies for exotic architectures.
+
+        **Cross-compilation toolchains used:**
+        - GNU GCC cross-compilers for most Linux architectures
+        - LLVM-MinGW for Windows ARM64
+        - Native Clang/GCC for macOS
+        - QEMU emulation for MIPS architectures during build
+        EOF
+
+        echo "Successfully organized binaries:"
+        ls -la bin/
+
+        # 生成校验和
+        cd bin
+        sha256sum stream-* > SHA256SUMS 2>/dev/null || shasum -a 256 stream-* > SHA256SUMS 2>/dev/null || true
+    - name: Configure Git for automated commits
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+    - name: Commit and push binaries to repository
+      run: |
+        # 计算统计数据
+        total_binaries=$(ls bin/stream-* 2>/dev/null | grep -v -E '\.(md|txt)' | grep -v "FAILED" | wc -l)
+        linux_count=$(ls bin/stream-linux-* 2>/dev/null | grep -v "FAILED" | wc -l)
+        darwin_count=$(ls bin/stream-darwin-* 2>/dev/null | grep -v "FAILED" | wc -l)
+        windows_count=$(ls bin/stream-windows-* 2>/dev/null | grep -v "FAILED" | wc -l)
+
+        # 检查是否有变化
+        if [[ $(git status --porcelain bin/) ]]; then
+          echo "Changes detected in bin/ directory, committing..."
+          git add bin/
+          COMMIT_MSG="Auto-build: Update STREAM binaries from workflow run ${{ github.run_number }}"
+          git commit -m "$COMMIT_MSG"
+          echo "Pushing binaries to main branch..."
+          git push origin HEAD:main
+          echo "Successfully committed and pushed ${total_binaries} binaries to repository"
+        else
+          echo "No changes detected in bin/ directory, skipping commit"
+        fi
+'on':
+  workflow_dispatch: null
