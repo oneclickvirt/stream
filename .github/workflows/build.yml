@@ -508,11 +508,13 @@ jobs:
           echo "No changes detected in bin/ directory, skipping commit"
         fi
 
-        new_tag="v0.0.2-$(date -u +%Y%m%d%H%M%S)"
+        git fetch --tags origin
+        new_tag="$(python3 .github/scripts/native_version.py)"
         git tag "$new_tag"
         git push origin "refs/tags/$new_tag"
 'on':
   workflow_dispatch: null
+  workflow_call: {}
 permissions:
   contents: write
 concurrency:
