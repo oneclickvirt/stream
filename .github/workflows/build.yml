@@ -52,12 +52,12 @@ jobs:
           goos: linux
           goarch: arm
           goarm: '6'
-          cc: arm-linux-gnueabihf-gcc
-          fc: arm-linux-gnueabihf-gfortran
-          cflags: -static -O2 -march=armv6 -mfpu=vfp -fno-stack-protector
-          fflags: -static -O2 -fno-stack-protector
-          packages: gcc-arm-linux-gnueabihf gfortran-arm-linux-gnueabihf
-          strip: arm-linux-gnueabihf-strip
+          cc: arm-linux-gnueabi-gcc
+          fc: arm-linux-gnueabi-gfortran
+          cflags: -static -O2 -march=armv6 -marm -mfloat-abi=soft -fno-stack-protector
+          fflags: -static -O2 -march=armv6 -marm -mfloat-abi=soft -fno-stack-protector
+          packages: gcc-arm-linux-gnueabi gfortran-arm-linux-gnueabi
+          strip: arm-linux-gnueabi-strip
         - os: ubuntu-latest
           target: linux-riscv64
           goos: linux
@@ -148,8 +148,8 @@ jobs:
           goarch: amd64
           cc: clang
           fc: gfortran
-          cflags: -O3 -arch x86_64 -mmacosx-version-min=10.12 -Xpreprocessor -fopenmp
-          fflags: -O3 -arch x86_64 -mmacosx-version-min=10.12 -fopenmp
+          cflags: -O3 -arch x86_64 -mmacosx-version-min=10.12
+          fflags: -O3 -mmacosx-version-min=10.12 -fopenmp
           setup_fortran: true
           use_openmp: true
         - os: macos-latest
@@ -158,8 +158,8 @@ jobs:
           goarch: arm64
           cc: clang
           fc: gfortran
-          cflags: -O3 -arch arm64 -mmacosx-version-min=11.0 -Xpreprocessor -fopenmp
-          fflags: -O3 -arch arm64 -mmacosx-version-min=11.0 -fopenmp
+          cflags: -O3 -arch arm64 -mmacosx-version-min=11.0
+          fflags: -O3 -mmacosx-version-min=11.0 -fopenmp
           setup_fortran: true
           use_openmp: true
         - os: ubuntu-latest
@@ -222,53 +222,27 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y build-essential gfortran
         if [[ -n "${{ matrix.packages }}" ]]; then
-          sudo apt-get install -y ${{ matrix.packages }} || {
-            echo "Some packages failed to install, continuing anyway..."
-          }
+          sudo apt-get install -y ${{ matrix.packages }}
         fi
     - name: Setup LLVM-MinGW for Windows ARM64
       if: matrix.use_llvm_mingw == true
       run: |
+        set -euo pipefail
         source "$RUNNER_TEMP/ci-network.sh"
-        # 获取最新的 LLVM-MinGW 版本
-        LATEST_RELEASE=$(curl -s https://api.github.com/repos/mstorsjo/llvm-mingw/releases/latest | grep "tag_name" | cut -d '"' -f 4)
-        echo "Latest LLVM-MinGW version: $LATEST_RELEASE"
-
-        # 对于 Windows ARM64，我们需要 aarch64 版本
-        # 使用正确的文件名格式
-        DOWNLOAD_URL="https://github.com/mstorsjo/llvm-mingw/releases/download/${LATEST_RELEASE}/llvm-mingw-${LATEST_RELEASE}-ucrt-ubuntu-22.04-x86_64.tar.xz"
-        echo "Downloading: $DOWNLOAD_URL"
-
-        wget "$DOWNLOAD_URL" -O llvm-mingw.tar.xz || {
-          echo "Primary download failed, trying alternative versions..."
-          # 尝试其他版本
-          wget "https://github.com/mstorsjo/llvm-mingw/releases/download/${LATEST_RELEASE}/llvm-mingw-${LATEST_RELEASE}-msvcrt-ubuntu-22.04-x86_64.tar.xz" -O llvm-mingw.tar.xz || {
-            echo "Ubuntu 22.04 failed, trying Ubuntu 20.04..."
-            wget "https://github.com/mstorsjo/llvm-mingw/releases/download/${LATEST_RELEASE}/llvm-mingw-${LATEST_RELEASE}-ucrt-ubuntu-20.04-x86_64.tar.xz" -O llvm-mingw.tar.xz || {
-              echo "All downloads failed, using hardcoded latest version 20250910..."
-              wget "https://github.com/mstorsjo/llvm-mingw/releases/download/20250910/llvm-mingw-20250910-ucrt-ubuntu-22.04-x86_64.tar.xz" -O llvm-mingw.tar.xz
-            }
-          }
-        }
-
-        # 解压并安装
+        curl -fsSL -H "Authorization: Bearer $GH_TOKEN" https://api.github.com/repos/mstorsjo/llvm-mingw/releases/latest > llvm-mingw-release.json
+        url=$(jq -er '[.assets[] | select(.name | test("^llvm-mingw-.*-ucrt-ubuntu-.*-x86_64\\.tar\\.xz$")) | .browser_download_url] | first // empty' llvm-mingw-release.json)
+        [[ "$url" == https://github.com/mstorsjo/llvm-mingw/releases/download/* ]]
+        curl -fL "$url" -o llvm-mingw.tar.xz
         tar -xf llvm-mingw.tar.xz
-        sudo mv llvm-mingw-* /opt/llvm-mingw
-        echo "/opt/llvm-mingw/bin" >> $GITHUB_PATH
-
-        # 验证安装 - 检查可用的编译器
-        echo "Available compilers:"
-        ls -la /opt/llvm-mingw/bin/ | grep -E "(clang|gcc|gfortran)" || true
-
-        # 验证 ARM64 交叉编译器
-        if ls /opt/llvm-mingw/bin/*aarch64* 1> /dev/null 2>&1; then
-          echo "ARM64 cross-compilers found:"
-          ls -la /opt/llvm-mingw/bin/*aarch64*
-        else
-          echo "Warning: ARM64 cross-compilers not found, listing all available:"
-          ls -la /opt/llvm-mingw/bin/
-        fi
+        shopt -s nullglob
+        directories=(llvm-mingw-*/)
+        [[ ${#directories[@]} == 1 ]]
+        sudo mv "${directories[0]}" /opt/llvm-mingw
+        [[ -x /opt/llvm-mingw/bin/aarch64-w64-mingw32-clang ]]
+        echo /opt/llvm-mingw/bin >> "$GITHUB_PATH"
       shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
     - name: Setup build environment (macOS)
       if: runner.os == 'macOS'
       run: |
@@ -283,174 +257,103 @@ jobs:
         fi
     - name: Build STREAM static binary
       run: |
+        set -euo pipefail
         cd stream-src
-
-        # 设置编译器和标志
-        export CC="${{ matrix.cc }}"
-        export FC="${{ matrix.fc || matrix.cc }}"
-        export CFLAGS="${{ matrix.cflags }}"
-        export FFLAGS="${{ matrix.fflags || matrix.cflags }}"
-
-        # macOS 特殊处理
-        if [[ "${{ runner.os }}" == "macOS" ]]; then
-          # 设置 OpenMP 库路径
-          if [[ "${{ matrix.use_openmp }}" == "true" ]]; then
-            export LDFLAGS="-L$(brew --prefix libomp)/lib -lomp"
-            export CPPFLAGS="-I$(brew --prefix libomp)/include"
-            # 对于 clang，使用正确的 OpenMP 标志
-            export CFLAGS="${CFLAGS} -Xpreprocessor -fopenmp -I$(brew --prefix libomp)/include"
-          fi
-          # 确保使用正确的 gfortran
-          export FC="$(brew --prefix gcc)/bin/gfortran"
+        CC="${{ matrix.cc }}"
+        FC="${{ matrix.fc || matrix.cc }}"
+        read -r -a flags <<< "${{ matrix.cflags }}"
+        read -r -a fflags <<< "${{ matrix.fflags || matrix.cflags }}"
+        extra=()
+        if [[ "${{ matrix.use_openmp }}" == true ]]; then
+          extra=(-Xpreprocessor -fopenmp -I"$(brew --prefix libomp)/include" -L"$(brew --prefix libomp)/lib" -lomp)
         fi
-
-        # 为 LLVM-MinGW 设置路径
-        if [[ "${{ matrix.use_llvm_mingw }}" == "true" ]]; then
-          export PATH="/opt/llvm-mingw/bin:$PATH"
+        # Both attempts retain the architecture, ABI and static-link flags.
+        if ! "$CC" "${flags[@]}" "${extra[@]}" -DSTREAM_ARRAY_SIZE=10000000 -DNTIMES=10 stream.c -o stream_c; then
+          rm -f stream_c
+          "$CC" "${flags[@]}" -O2 -DSTREAM_ARRAY_SIZE=10000000 -DNTIMES=10 stream.c -o stream_c
         fi
-
-        echo "Building STREAM with CC=$CC and CFLAGS=$CFLAGS"
-        echo "Target: ${{ matrix.target }}"
-
-        # 编译 STREAM C 版本
-        echo "=== Building STREAM C version ==="
-
-        # 对于某些特殊架构，可能需要特殊处理
-        BUILD_SUCCESS=false
-        BUILD_ERROR=""
-
-        # macOS 特殊编译选项
-        if [[ "${{ runner.os }}" == "macOS" && "${{ matrix.use_openmp }}" == "true" ]]; then
-          $CC $CFLAGS $CPPFLAGS -DSTREAM_ARRAY_SIZE=80000000 -DNTIMES=10 -DOMP stream.c $LDFLAGS -o stream_c${{ matrix.ext }} && BUILD_SUCCESS=true || \
-          $CC $CFLAGS $CPPFLAGS -DSTREAM_ARRAY_SIZE=10000000 -DNTIMES=10 stream.c $LDFLAGS -o stream_c${{ matrix.ext }} && BUILD_SUCCESS=true || \
-          $CC $CFLAGS stream.c -o stream_c${{ matrix.ext }} && BUILD_SUCCESS=true
-        else
-          # 标准编译，带有回退选项
-          $CC $CFLAGS -DSTREAM_ARRAY_SIZE=10000000 -DNTIMES=10 stream.c -o stream_c${{ matrix.ext }} && BUILD_SUCCESS=true || \
-          $CC $CFLAGS -DSTREAM_ARRAY_SIZE=1000000 -DNTIMES=10 stream.c -o stream_c${{ matrix.ext }} && BUILD_SUCCESS=true || \
-          $CC $CFLAGS stream.c -o stream_c${{ matrix.ext }} && BUILD_SUCCESS=true || \
-          {
-            echo "Standard build failed, trying basic compilation..."
-            # 移除一些可能有问题的标志
-            SIMPLE_CFLAGS=$(echo "$CFLAGS" | sed 's/-march=[^ ]*//g' | sed 's/-mtune=[^ ]*//g' | sed 's/-mabi=[^ ]*//g')
-            $CC $SIMPLE_CFLAGS stream.c -o stream_c${{ matrix.ext }} && BUILD_SUCCESS=true || \
-            {
-              echo "Even basic compilation failed, trying minimal flags..."
-              $CC -O2 -static stream.c -o stream_c${{ matrix.ext }} && BUILD_SUCCESS=true || \
-              $CC stream.c -o stream_c${{ matrix.ext }} && BUILD_SUCCESS=true || \
-              {
-                BUILD_ERROR="All compilation attempts failed for ${{ matrix.target }}"
-                echo "ERROR: $BUILD_ERROR"
-              }
-            }
-          }
-        fi
-
-        if [[ "$BUILD_SUCCESS" != "true" ]]; then
-          # 记录失败但不退出，让其他架构继续构建
-          echo "FAILED: ${{ matrix.target }} - $BUILD_ERROR"
-          echo "${{ matrix.target }}: FAILED - $BUILD_ERROR" > ../build-failure.log
-          # 创建一个空的标记文件，表示此架构构建失败
-          echo "Build failed: $BUILD_ERROR" > "../bin/FAILED-${{ matrix.target }}.txt"
-          exit 0  # 不要因为单个架构失败而终止整个构建
-        fi
-
-        # 尝试编译 Fortran 版本 (如果有 Fortran 编译器)
-        if command -v $FC &> /dev/null; then
-          echo "=== Building STREAM Fortran version ==="
-          # macOS Fortran 特殊编译
-          if [[ "${{ runner.os }}" == "macOS" && "${{ matrix.use_openmp }}" == "true" ]]; then
-            $FC $FFLAGS -fopenmp -DSTREAM_ARRAY_SIZE=80000000 -DNTIMES=10 stream.f -o stream_f${{ matrix.ext }} || \
-            $FC $FFLAGS -fopenmp -DSTREAM_ARRAY_SIZE=10000000 -DNTIMES=10 stream.f -o stream_f${{ matrix.ext }} || \
-            $FC $FFLAGS stream.f -o stream_f${{ matrix.ext }} || true
+        [[ -s stream_c ]]
+        mkdir -p ../build-output
+        prefix="stream-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm && 'v' }}${{ matrix.goarm }}"
+        if [[ "${{ matrix.target }}" == linux-amd64-compat ]]; then prefix=stream-linux-amd64-compat; fi
+        cp stream_c "../build-output/$prefix${{ matrix.ext }}"
+        cp stream_c "../build-output/${prefix}_c${{ matrix.ext }}"
+        # Optional Fortran binaries are published only when their own compiler and architecture are valid.
+        if [[ "${{ matrix.goos }}" == darwin && "${{ matrix.goarch }}" == amd64 && "${{ runner.arch }}" == ARM64 ]]; then
+          echo "Fortran cross compiler unavailable; the previously published Fortran binary is retained."
+        elif command -v "$FC" >/dev/null; then
+          if "$FC" "${fflags[@]}" stream.f -o stream_f; then
+            cp stream_f "../build-output/${prefix}_f${{ matrix.ext }}"
           else
-            $FC $FFLAGS stream.f -o stream_f${{ matrix.ext }} || \
-            $FC $FFLAGS -DSTREAM_ARRAY_SIZE=10000000 -DNTIMES=10 stream.f -o stream_f${{ matrix.ext }} || \
-            $FC $FFLAGS -DSTREAM_ARRAY_SIZE=1000000 -DNTIMES=10 stream.f -o stream_f${{ matrix.ext }} || \
-            {
-              echo "Standard Fortran build failed, trying simpler compilation..."
-              SIMPLE_FFLAGS=$(echo "$FFLAGS" | sed 's/-march=[^ ]*//g' | sed 's/-mtune=[^ ]*//g' | sed 's/-mabi=[^ ]*//g')
-              $FC $SIMPLE_FFLAGS stream.f -o stream_f${{ matrix.ext }} || \
-              $FC -O2 -static stream.f -o stream_f${{ matrix.ext }} || \
-              $FC stream.f -o stream_f${{ matrix.ext }} || true
-            }
+            echo "::warning::Optional Fortran build unavailable; the previous validated binary is retained."
+            rm -f stream_f
           fi
-        else
-          echo "Fortran compiler not available, skipping Fortran build"
         fi
-
-        # 设置输出文件名前缀
-        if [[ -n "${{ matrix.goarm }}" ]]; then
-          PREFIX="stream-${{ matrix.goos }}-${{ matrix.goarch }}v${{ matrix.goarm }}"
-        else
-          PREFIX="stream-${{ matrix.goos }}-${{ matrix.goarch }}"
+        if [[ "${{ matrix.target }}" == linux-amd64 || ("${{ matrix.goos }}" == darwin && "${{ matrix.goarch }}" == arm64 && "${{ runner.arch }}" == ARM64) ]]; then
+          "$CC" "${flags[@]}" -DSTREAM_ARRAY_SIZE=65536 -DNTIMES=2 stream.c -o stream-smoke
+          ./stream-smoke > stream-smoke.txt
+          grep -F "Solution Validates" stream-smoke.txt
         fi
-
-        # 复制并重命名二进制文件
-        if [[ -f "stream_c${{ matrix.ext }}" ]]; then
-          cp "stream_c${{ matrix.ext }}" "../bin/${PREFIX}_c${{ matrix.ext }}"
-          echo "Built C version: ${PREFIX}_c${{ matrix.ext }}"
-        fi
-
-        if [[ -f "stream_f${{ matrix.ext }}" ]]; then
-          cp "stream_f${{ matrix.ext }}" "../bin/${PREFIX}_f${{ matrix.ext }}"
-          echo "Built Fortran version: ${PREFIX}_f${{ matrix.ext }}"
-        fi
-
-        # 创建主要的可执行文件链接 (使用 C 版本)
-        if [[ -f "stream_c${{ matrix.ext }}" ]]; then
-          cp "stream_c${{ matrix.ext }}" "../bin/${PREFIX}${{ matrix.ext }}"
-        fi
-
-        # Strip 二进制文件
-        cd ../bin
-        if [[ -n "${{ matrix.strip }}" ]]; then
-          ${{ matrix.strip }} ${PREFIX}* 2>/dev/null || {
-            echo "Strip failed, but continuing..."
-          }
-        elif [[ "${{ runner.os }}" == "Linux" && "${{ matrix.target }}" == "linux-amd64" ]]; then
-          strip ${PREFIX}* 2>/dev/null || true
-        elif [[ "${{ runner.os }}" == "macOS" ]]; then
-          strip ${PREFIX}* 2>/dev/null || true
-        fi
-
-        # 显示文件信息
-        echo "=== Built files ==="
-        ls -lah ${PREFIX}* || ls -lah *${{ matrix.target }}* || true
-        for f in ${PREFIX}*; do
-          if [[ -f "$f" ]]; then
-            echo "File: $f"
-            file "$f" || true
-            echo "---"
+      shell: bash
+    - name: Verify all new binary architectures and static linkage
+      shell: bash
+      run: |
+        set -euo pipefail
+        shopt -s nullglob
+        files=(build-output/stream-*)
+        [[ ${#files[@]} -ge 2 ]]
+        for file in "${files[@]}"; do
+          [[ -f "$file" && -s "$file" ]]
+          if [[ "${{ matrix.goos }}" == linux ]]; then
+            header=$(readelf -h "$file")
+            case "${{ matrix.goarch }}" in
+              amd64) machine=X86-64; class=ELF64; endian='little endian' ;;
+              386) machine=80386; class=ELF32; endian='little endian' ;;
+              arm64) machine=AArch64; class=ELF64; endian='little endian' ;;
+              arm) machine=ARM; class=ELF32; endian='little endian' ;;
+              riscv64) machine=RISC-V; class=ELF64; endian='little endian' ;;
+              ppc64) machine=PowerPC64; class=ELF64; endian='big endian' ;;
+              ppc64le) machine=PowerPC64; class=ELF64; endian='little endian' ;;
+              s390x) machine='IBM S/390'; class=ELF64; endian='big endian' ;;
+              mips) machine=MIPS; class=ELF32; endian='big endian' ;;
+              mipsle) machine=MIPS; class=ELF32; endian='little endian' ;;
+              mips64) machine=MIPS; class=ELF64; endian='big endian' ;;
+              mips64le) machine=MIPS; class=ELF64; endian='little endian' ;;
+              *) exit 1 ;;
+            esac
+            grep -F "$machine" <<< "$header"
+            grep -F "$class" <<< "$header"
+            grep -F "$endian" <<< "$header"
+            readelf -l "$file" > binary-segments.txt
+            if grep -q INTERP binary-segments.txt; then echo "Binary retained a dynamic loader." >&2; exit 1; fi
+            if [[ "${{ matrix.target }}" == linux-armv6 ]]; then
+              attributes=$(readelf -A "$file")
+              grep -Eq 'Tag_CPU_arch: v(4|5|6)([^0-9]|$)' <<< "$attributes"
+              if grep -Eq 'Tag_CPU_arch: v(7|8|9)' <<< "$attributes"; then exit 1; fi
+            fi
+          elif [[ "${{ matrix.goos }}" == darwin ]]; then
+            lipo "$file" -verify_arch "${{ matrix.goarch == 'amd64' && 'x86_64' || 'arm64' }}"
+          elif [[ "${{ matrix.goos }}" == windows ]]; then
+            info=$(file "$file")
+            case "${{ matrix.goarch }}" in
+              amd64) grep -Ei 'PE32[+].*x86-64' <<< "$info" ;;
+              386) grep -Ei 'PE32 executable.*Intel 80386' <<< "$info" ;;
+              arm64) grep -Ei 'PE32[+].*Aarch64' <<< "$info" ;;
+              *) exit 1 ;;
+            esac
           fi
         done
-
-        # 测试二进制文件（仅在兼容架构上）
-        if [[ "${{ matrix.target }}" == "linux-amd64" && "${{ runner.os }}" == "Linux" ]]; then
-          echo "=== Testing Linux AMD64 binary ==="
-          if [[ -f "${PREFIX}${{ matrix.ext }}" ]]; then
-            timeout 10s "./${PREFIX}${{ matrix.ext }}" || echo "Test completed or timed out"
-          fi
-        elif [[ "${{ runner.os }}" == "macOS" ]]; then
-          echo "=== Testing macOS binary ==="
-          if [[ -f "${PREFIX}${{ matrix.ext }}" ]]; then
-            timeout 10s "./${PREFIX}${{ matrix.ext }}" || echo "Test completed or timed out"
-          fi
-        fi
-      continue-on-error: false
     - name: Upload binary artifact
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: stream-${{ matrix.target }}
-        path: |
-          bin/stream-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm && 'v' }}${{ matrix.goarm }}*
-          bin/FAILED-${{ matrix.target }}.txt
+        path: build-output/stream-*
         retention-days: 30
-      continue-on-error: true
+        if-no-files-found: error
   collect:
     needs: build
     runs-on: ubuntu-latest
-    if: always()
+    if: needs.build.result == 'success'
     steps:
     - name: Checkout current repository
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -475,7 +378,7 @@ jobs:
         find artifacts/ -type f -name "stream-*" -exec cp {} bin/ \;
 
         # 复制失败标记文件（如果有的话）
-        find artifacts/ -type f -name "FAILED-*.txt" -exec cp {} bin/ \; 2>/dev/null || true
+
 
         # 给所有二进制文件添加执行权限
         chmod +x bin/stream-* 2>/dev/null || true
@@ -576,7 +479,7 @@ jobs:
 
         # 生成校验和
         cd bin
-        sha256sum stream-* > SHA256SUMS 2>/dev/null || shasum -a 256 stream-* > SHA256SUMS 2>/dev/null || true
+        sha256sum stream-* > SHA256SUMS
     - name: Configure Git for automated commits
       run: |
         git config --local user.email "action@github.com"
@@ -601,5 +504,11 @@ jobs:
         else
           echo "No changes detected in bin/ directory, skipping commit"
         fi
+
+        new_tag="v0.0.2-$(date -u +%Y%m%d%H%M%S)"
+        git tag "$new_tag"
+        git push origin "refs/tags/$new_tag"
 'on':
   workflow_dispatch: null
+permissions:
+  contents: write
