@@ -268,25 +268,25 @@ jobs:
           extra=(-Xpreprocessor -fopenmp -I"$(brew --prefix libomp)/include" -L"$(brew --prefix libomp)/lib" -lomp)
         fi
         # Both attempts retain the architecture, ABI and static-link flags.
-        if ! "$CC" "${flags[@]}" "${extra[@]}" -DSTREAM_ARRAY_SIZE=10000000 -DNTIMES=10 stream.c -o stream_c; then
-          rm -f stream_c
-          "$CC" "${flags[@]}" -O2 -DSTREAM_ARRAY_SIZE=10000000 -DNTIMES=10 stream.c -o stream_c
+        if ! "$CC" "${flags[@]}" "${extra[@]}" -DSTREAM_ARRAY_SIZE=10000000 -DNTIMES=10 stream.c -o stream_c${{ matrix.ext }}; then
+          rm -f stream_c${{ matrix.ext }}
+          "$CC" "${flags[@]}" -O2 -DSTREAM_ARRAY_SIZE=10000000 -DNTIMES=10 stream.c -o stream_c${{ matrix.ext }}
         fi
-        [[ -s stream_c ]]
+        [[ -s stream_c${{ matrix.ext }} ]]
         mkdir -p ../build-output
         prefix="stream-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm && 'v' }}${{ matrix.goarm }}"
         if [[ "${{ matrix.target }}" == linux-amd64-compat ]]; then prefix=stream-linux-amd64-compat; fi
-        cp stream_c "../build-output/$prefix${{ matrix.ext }}"
-        cp stream_c "../build-output/${prefix}_c${{ matrix.ext }}"
+        cp stream_c${{ matrix.ext }} "../build-output/$prefix${{ matrix.ext }}"
+        cp stream_c${{ matrix.ext }} "../build-output/${prefix}_c${{ matrix.ext }}"
         # Optional Fortran binaries are published only when their own compiler and architecture are valid.
         if [[ "${{ matrix.goos }}" == darwin && "${{ matrix.goarch }}" == amd64 && "${{ runner.arch }}" == ARM64 ]]; then
           echo "Fortran cross compiler unavailable; the previously published Fortran binary is retained."
         elif command -v "$FC" >/dev/null; then
-          if "$FC" "${fflags[@]}" stream.f -o stream_f; then
-            cp stream_f "../build-output/${prefix}_f${{ matrix.ext }}"
+          if "$FC" "${fflags[@]}" stream.f -o stream_f${{ matrix.ext }}; then
+            cp stream_f${{ matrix.ext }} "../build-output/${prefix}_f${{ matrix.ext }}"
           else
             echo "::warning::Optional Fortran build unavailable; the previous validated binary is retained."
-            rm -f stream_f
+            rm -f stream_f${{ matrix.ext }}
           fi
         fi
         if [[ "${{ matrix.target }}" == linux-amd64 || ("${{ matrix.goos }}" == darwin && "${{ matrix.goarch }}" == arm64 && "${{ runner.arch }}" == ARM64) ]]; then
@@ -360,6 +360,7 @@ jobs:
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         fetch-depth: 0
+        ref: main
     - name: Checkout STREAM source
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
@@ -499,6 +500,8 @@ jobs:
           COMMIT_MSG="Auto-build: Update STREAM binaries from workflow run ${{ github.run_number }}"
           git commit -m "$COMMIT_MSG"
           echo "Pushing binaries to main branch..."
+          git fetch origin main
+          git rebase origin/main
           git push origin HEAD:main
           echo "Successfully committed and pushed ${total_binaries} binaries to repository"
         else
@@ -512,3 +515,6 @@ jobs:
   workflow_dispatch: null
 permissions:
   contents: write
+concurrency:
+  group: native-binary-publication
+  cancel-in-progress: false
