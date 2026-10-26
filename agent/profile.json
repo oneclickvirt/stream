@@ -1,0 +1,19 @@
+{
+  "repository": "oneclickvirt/stream",
+  "branch": "main",
+  "skill_name": "oneclickvirt-stream",
+  "purpose": "Use the Go STREAM library for bounded memory-bandwidth testing.",
+  "notes": [
+    "Inspect exported APIs and platform-specific implementations before selecting a workload. Keep results tied to the actual test method, working set and concurrency."
+  ],
+  "guide": "https://www.spiritlhl.net/guide/agent_integrations.html",
+  "releases": false,
+  "mcp": false,
+  "source_files": [
+    "go.mod"
+  ],
+  "purpose_zh": "使用 Go STREAM 库执行有明确范围的内存带宽测试。",
+  "notes_zh": [
+    "先检查导出接口和平台实现，报告结果时保留测试方法、工作集和并发数。"
+  ]
+}

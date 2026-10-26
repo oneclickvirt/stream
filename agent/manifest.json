@@ -1,0 +1,10 @@
+{
+  "repository": "oneclickvirt/stream",
+  "skill_name": "oneclickvirt-stream",
+  "mcp": false,
+  "files": {
+    "agent/profile.json": "086b118a17e688379d84ed5e48ea2d93562947712aac6a92fbcc99a872232ed5",
+    "skills/oneclickvirt-stream/SKILL.md": "2b8ebe75a5bd5883ff26fcba202dd457ac47be59047e36e583e8e0a9a33af05a",
+    "skills/oneclickvirt-stream/SKILL_ZH.md": "9f17d223ebf66bcf21bea06c6fee1cc854e5a8be9e595394e96ab070416cd12e"
+  }
+}
